@@ -1,0 +1,55 @@
+const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
+
+var engine, world;
+var snookerTable, balls = [];
+
+function setup() {
+  createCanvas(1000, 600);
+
+  // Initialize Matter.js
+  engine = Engine.create();
+  world = engine.world;
+
+  // Gravity to zero - the game is top view
+  engine.gravity.y = 0;
+
+  // Create snooker table
+  snookerTable = new SnookerTable({
+    tableWidth: 800,
+    tableOffsetX: 100,
+    tableOffsetY: 150,
+    colors: {
+      tableMat: "#009A17",
+      innerBorder: "#004C54",
+      pocket: "black",
+      line: "white",
+      outerBorder: "#964e02",
+    },
+  });
+  
+  // Create balls
+  Ball.initializeBalls(
+    snookerTable.tableWidth,
+    snookerTable.tableHeight,
+    snookerTable.tableOffsetX,
+    snookerTable.tableOffsetY,
+    snookerTable.baulkLineX,
+    snookerTable.dRadius
+  );
+
+  Matter.Runner.run(engine);
+}
+
+function draw() {
+  // Framerate limit - default
+  frameRate(60);
+
+  // For scoreboard
+  background("#154734");
+
+  // Draw snooker table
+  snookerTable.draw();
+
+  // Draw balls
+  balls.forEach((ball) => ball.draw());
+}
