@@ -1,9 +1,9 @@
 class Ball {
   constructor(x, y, diameter, color, label) {
       this.body = Bodies.circle(x, y, diameter / 2, {
-        restitution: 0.9,
-        friction: 0.1,
-        label: label,
+          restitution: 0.9,
+          friction: 0.01,
+          label: label,
       });
       this.color = color;
       World.add(world, this.body);
@@ -79,7 +79,7 @@ class Ball {
       // Add colored balls (yellow, green, brown, blue, pink, black)
       balls.push(new Ball(
           baulkLineX,
-          centerY + dRadius,
+          centerY + (centerY / 4) - ballDiameter / 2,
           ballDiameter,
           {
               light: "rgb(255, 255, 0)",
@@ -90,7 +90,7 @@ class Ball {
       ));
       balls.push(new Ball(
           baulkLineX,
-          centerY - dRadius,
+          centerY - (centerY / 4) + ballDiameter / 2,
           ballDiameter,
           {
               light: "rgb(0, 128, 0)",

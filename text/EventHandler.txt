@@ -1,0 +1,88 @@
+function handlePocketCollision(event) {
+    const pairs = event.pairs;
+
+    pairs.forEach(pair => {
+        const bodyA = pair.bodyA;
+        const bodyB = pair.bodyB;
+
+        // Check if a ball collides with a pocket
+        if ((bodyA.label === 'pocket' && bodyB.label.endsWith('Ball')) ||
+            (bodyB.label === 'pocket' && bodyA.label.endsWith('Ball'))) {
+            
+            const ball = bodyA.label.endsWith('Ball') ? bodyA : bodyB;
+            
+            //Test
+            console.log(`${ball.label} potted in pocket!`);
+
+            // Remove the ball from the simulation
+            Matter.World.remove(world, ball);
+
+            balls = balls.filter(b => b.body !== ball);
+
+            // Additional logic (e.g., update score, respawn colored balls)
+        }
+    });
+}
+
+let isAnimating = false; // Flag to prevent multiple clicks
+let animationProgress = 0; // Track animation progress
+
+function mouseClicked() {
+  // Table boundaries
+  const tableLeft = snookerTable.tableOffsetX;
+  const tableRight = snookerTable.tableOffsetX + snookerTable.tableWidth;
+  const tableTop = snookerTable.tableOffsetY;
+  const tableBottom = snookerTable.tableOffsetY + snookerTable.tableHeight;
+
+  // If the mouse is within the table boundaries and not animating
+  if (
+    !isAnimating &&
+    mouseX >= tableLeft &&
+    mouseX <= tableRight &&
+    mouseY >= tableTop &&
+    mouseY <= tableBottom
+  ) {
+    isAnimating = true; // Block further clicks
+    animationProgress = 0; // Reset animation progress
+
+    // Animate cue back and forth
+    const cueAnimation = setInterval(() => {
+      animationProgress += 0.05;
+
+      // Calculate back-and-forth motion (sinusoidal movement)
+      const cueOffset = Math.sin(animationProgress * Math.PI * 2) * 20; // 20px back and forth
+      cue.setPosition({
+        x: cueBall.position.x - cueOffset,
+        y: cueBall.position.y,
+      });
+
+      if (animationProgress >= 1) {
+        clearInterval(cueAnimation); // End animation
+
+        // Calculate and apply force
+        const forceMagnitude = speedSlider.value() / 1000;
+        const forceDirection = {
+          x: mouseX - cueBall.position.x,
+          y: mouseY - cueBall.position.y,
+        };
+
+        // Normalize direction vector
+        const directionMagnitude = Math.sqrt(
+          forceDirection.x ** 2 + forceDirection.y ** 2
+        );
+        const normalizedDirection = {
+          x: forceDirection.x / directionMagnitude,
+          y: forceDirection.y / directionMagnitude,
+        };
+
+        // Apply the force to the cue ball
+        Matter.Body.applyForce(cueBall, cueBall.position, {
+          x: normalizedDirection.x * forceMagnitude,
+          y: normalizedDirection.y * forceMagnitude,
+        });
+
+        isAnimating = false; // Allow new clicks
+      }
+    }, 16); // Run at ~60fps
+  }
+}

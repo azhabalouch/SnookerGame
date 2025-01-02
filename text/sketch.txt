@@ -2,9 +2,6 @@ const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
 
 var canvas, engine, world;
 var snookerTable, balls = [], cue, cueBall;
-var velocityMagnitude;
-var player1Score = 0, player2Score = 0, currentPlayer = 1, dpHeight = 50;
-var timer = 60, timerInterval, foulMessageVisible = false, foulMessageTimeout;
 
 function setup() {
   // Framerate limit and canvas
@@ -49,19 +46,17 @@ function setup() {
   cue = new Cue(cueBall);
 
   // CueBall speed adjustment
-  speedSlider = createSlider(1, 20, 5);
+  speedSlider = createSlider(1, 20, 10);
   speedSlider.position(20, 20);
   speedSlider.style('width', '200px');
-
-  startTimer();
 
   Matter.Events.on(engine, 'collisionStart', handlePocketCollision);
   Matter.Runner.run(engine);
 }
 
 function draw() {
-  // Mouse position and Bg
   const mousePos = { x: mouseX, y: mouseY };
+
   background("#154734");
 
   // Draw snookertable
@@ -72,7 +67,7 @@ function draw() {
 
   // Draw cue only when ball is at rest
   // Also projectile from cueBall
-  velocityMagnitude = Math.sqrt(
+  const velocityMagnitude = Math.sqrt(
     cueBall.velocity.x ** 2 + cueBall.velocity.y ** 2
   );
 
@@ -80,30 +75,4 @@ function draw() {
     cue.drawCue(mousePos);
     cue.update();
   }
-
-  // Display Current Player
-  push();
-    fill("white");
-    textAlign(CENTER);
-    textSize(24);
-    textStyle(BOLD);
-    if (currentPlayer === 1){
-      text("Player One's Turn", width / 2, dpHeight);
-    } else {
-      text("Player Two's Turn", width / 2, dpHeight);
-    }
-  pop();
-
-  // Display foul message if active
-  if (foulMessageVisible) {
-    push();
-      fill("red");
-      textAlign(CENTER, CENTER);
-      textSize(24);
-      textStyle(BOLD);
-      text("Foul! Next player's turn.", width / 2, height / 2);
-    pop();
-  }
-
-  drawTimer();
 }
