@@ -1,44 +1,59 @@
-const { Engine, Render, Runner, World, Bodies, Body, Events, Mouse, MouseConstraint } = Matter;
+// Importing required modules from Matter.js
+const { 
+  Engine,
+  Render,
+  Runner,
+  World,
+  Bodies,
+  Body,
+  Events,
+  Mouse,
+  MouseConstraint
+} = Matter;
 
+// Declaring variables for the game
 var 
-  canvas,
-  engine,
-  world,
-  snookerTable,
-  balls = [],
-  cue,
-  cueBall,
-  velocityMagnitude,
-  dpHeight = 50,
-  player1Score = 0,
-  player2Score = 0,
-  currentPlayer = 1,
-  timer = 60,
-  timerInterval,
-  foulMessageVisible = false,
-  foulMessageTimeout,
-  IncorrectMessageVisible = false,
-  IncorrectMessageTimeout,
-  gameStarted = false,
-  buttonStart,
-  Btn_confirmCueballPos,
-  ignoreNextClick = false,
-  ballInHand = true,
-  mouseConstraint;
+  canvas,                 // The canvas where the game will be rendered
+  engine,                 // Physics engine instance
+  world,                  // World instance for the physics engine
+  snookerTable,           // Snooker table instance
+  balls = [],             // Array to hold ball instances
+  cue,                    // Cue instance
+  cueBall,                // Reference to the cue ball
+  velocityMagnitude,      // Magnitude of velocity for ball movement
+  dpHeight = 50,          // Display panel height
+  player1Score = 0,       // Score for Player 1
+  player2Score = 0,       // Score for Player 2
+  currentPlayer = 1,      // Indicator for the current player (1 or 2)
+  timer = 60,             // Timer for the game
+  timerInterval,          // Interval ID for the timer
+  foulMessageVisible = false,  // Visibility flag for foul messages
+  foulMessageTimeout,     // Timeout ID for foul message visibility
+  IncorrectMessageVisible = false, // Visibility flag for incorrect move messages
+  IncorrectMessageTimeout,// Timeout ID for incorrect move message visibility
+  gameStarted = false,    // Flag to indicate if the game has started
+  buttonStart,            // Start button element
+  Btn_confirmCueballPos,  // Button to confirm cue ball position
+  ignoreNextClick = false,// Flag to ignore unintended mouse clicks
+  ballInHand = true,      // Indicates if the ball is in hand (free placement)
+  mouseConstraint;        // Mouse constraint for interactions
 
+/**
+ * The setup function initializes the game and its components.
+ */
 function setup() {
-  // Framerate limit and canvas
+  // Set frame rate and create canvas
   frameRate(60);
   canvas = createCanvas(1000, 600);
 
-  // Initialize engine
+  // Initialize physics engine and world
   engine = Engine.create();
   world = engine.world;
 
-  // Gravity 0 at y axis as it is top view game
+  // Disable gravity in the y-axis for top-view gameplay
   engine.gravity.y = 0;
 
-  // Create snooker table
+  // Create the snooker table with specified dimensions and colors
   snookerTable = new SnookerTable({
     tableWidth: 800,
     tableOffsetX: 150,
@@ -52,7 +67,7 @@ function setup() {
     },
   });
 
-  // Create balls
+  // Initialize balls and position them on the table
   Ball.initializeBalls(
     snookerTable.tableWidth,
     snookerTable.tableHeight,
@@ -62,80 +77,37 @@ function setup() {
     snookerTable.dRadius
   );
 
-  // Separate cueBall from balls
+  // Separate the cue ball from the other balls
   cueBall = balls.find(ball => ball.body.label === "cueBall").body;
 
-  // Create cue
+  // Create a cue object to interact with the cue ball
   cue = new Cue(cueBall);
 
-  // Game start button
-  buttonStart = createButton('Start Game');
-  buttonStart.position(canvas.width / 2 - 50, canvas.height / 2);
-  buttonStart.mousePressed(() => {
-    gameStarted = true;
-    buttonStart.hide();
+  // Initialize UI elements and interactions
+  gameStartBtn();          // Create the game start button
+  slider();                // Initialize sliders
+  mouseInteraction();      // Enable mouse interactions
+  cueBallConfirmPos();     // Confirm cue ball position
 
-    // Next click is ignored (so the cue doesn’t instantly shoot)
-    ignoreNextClick = true;
-  });
-
-  var sliderPosX = -135;
-  var sliderPosY = snookerTable.tableOffsetY + snookerTable.tableHeight / 2;
-  
-  // CueBall speed adjustment
-  speedSlider = createSlider(1, 20, 10);
-  speedSlider.position(sliderPosX, sliderPosY);
-  speedSlider.style('width', '400px');
-  speedSlider.style('transform', 'rotate(-90deg)');
-  speedSlider.hide();
-
-  // For only first turn add mouse interaction
-  const canvasMouse = Mouse.create(canvas.elt);
-  mouseConstraint = MouseConstraint.create(engine, {
-    mouse: canvasMouse,
-    constraint: {
-      stiffness: 0.2,
-      render: {
-        visible: false, // Hide the mouse interaction visuals
-      },
-    },
-  });
-
-  World.add(world, mouseConstraint);
-
-  // Confirm cueball position on first turn
-  Btn_confirmCueballPos = createButton('Confirm')
-  Btn_confirmCueballPos.position(canvas.width / 2 - dpHeight, dpHeight*1.75);
-  Btn_confirmCueballPos.hide();
-  Btn_confirmCueballPos.mouseClicked(() => {
-    if(checkIfCueBallonD()){
-      Btn_confirmCueballPos.hide();
-      ballInHand = false;
-      speedSlider.show();
-
-      for(i = 0; i < balls.length; i++){
-        if (balls[i].body.label !== 'cueBall'){
-          balls[i].body.collisionFilter.mask = 1;
-        }
-      }
-
-      Matter.World.remove(world, mouseConstraint);
-    }
-  });
-
-  startTimer();
+  // Add collision event listener for ball-pocket interactions
   Matter.Events.on(engine, 'collisionStart', handlePocketCollision);
+
+  // Start the physics engine runner
   Matter.Runner.run(engine);
 }
 
+/**
+ * The draw function continuously renders the game screen.
+ */
 function draw() {
+  // Set background color
   background("#154734");
 
   if (!gameStarted) {
-    // Display the start screen
+    // Render the start screen if the game hasn't started
     displayStartScreen();
   } else {
-    // Display the game screen
+    // Render the main game screen during gameplay
     displayGameScreen();
   }
 }
