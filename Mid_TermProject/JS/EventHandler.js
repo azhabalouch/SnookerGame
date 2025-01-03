@@ -22,44 +22,57 @@ function handlePocketCollision(event) {
 }
 
 function mouseClicked() {
-    // Table boundaries
-    const tableLeft = snookerTable.tableOffsetX;
-    const tableRight = snookerTable.tableOffsetX + snookerTable.tableWidth;
-    const tableTop = snookerTable.tableOffsetY;
-    const tableBottom = snookerTable.tableOffsetY + snookerTable.tableHeight;
-  
-    // If the mouse is within the table boundaries
-    if (mouseX >= tableLeft && mouseX <= tableRight && mouseY >= tableTop && mouseY <= tableBottom && velocityMagnitude <= 0.009) {
-      const forceMagnitude = speedSlider.value() / 1000;
-  
-      // Direction of the force from cue ball to mouse position
-      const forceDirection = {
-        x: mouseX - cueBall.position.x,
-        y: mouseY - cueBall.position.y,
-      };
-  
-      // Normalize the direction vector
-      const directionMagnitude = Math.sqrt(
-        forceDirection.x ** 2 + forceDirection.y ** 2
-      );
-      const normalizedDirection = {
-        x: forceDirection.x / directionMagnitude,
-        y: forceDirection.y / directionMagnitude,
-      };
-  
-      // Apply the force to the cue ball
-      Matter.Body.applyForce(cueBall, cueBall.position, {
-        x: normalizedDirection.x * forceMagnitude,
-        y: normalizedDirection.y * forceMagnitude,
-      });
-
-      // Change player after the shot is completed
-      setTimeout(() => {
-        if (currentPlayer === 1) {
-          currentPlayer = 2;
-        } else {
-          currentPlayer = 1;
-        }
-      }, 1500);
-    }
+  // We’re ignoring the click that started the game
+  if (ignoreNextClick) {
+    ignoreNextClick = false; // reset so clicks work for the rest of the game
+    return;
   }
+
+  if (ballInHand){
+    return;
+  }
+
+  // -- Shooting logic below --
+
+  // Table boundaries
+  const tableLeft = snookerTable.tableOffsetX;
+  const tableRight = snookerTable.tableOffsetX + snookerTable.tableWidth;
+  const tableTop = snookerTable.tableOffsetY;
+  const tableBottom = snookerTable.tableOffsetY + snookerTable.tableHeight;
+
+  // If the mouse is within the table boundaries and cue ball is at rest
+  if (
+    mouseX >= tableLeft && mouseX <= tableRight &&
+    mouseY >= tableTop && mouseY <= tableBottom &&
+    velocityMagnitude <= 0.009
+  ) {
+    const forceMagnitude = speedSlider.value() / 1000;
+
+    // Direction of the force from cue ball to mouse position
+    const forceDirection = {
+      x: mouseX - cueBall.position.x,
+      y: mouseY - cueBall.position.y,
+    };
+
+    // Normalize the direction vector
+    const directionMagnitude = Math.sqrt(
+      forceDirection.x ** 2 + forceDirection.y ** 2
+    );
+    const normalizedDirection = {
+      x: forceDirection.x / directionMagnitude,
+      y: forceDirection.y / directionMagnitude,
+    };
+
+    // Apply the force to the cue ball
+    Matter.Body.applyForce(cueBall, cueBall.position, {
+      x: normalizedDirection.x * forceMagnitude,
+      y: normalizedDirection.y * forceMagnitude,
+    });
+
+    // Change player after the shot is completed
+    setTimeout(() => {
+      resetTimer();
+      currentPlayer = (currentPlayer === 1) ? 2 : 1;
+    }, 1500);
+  }
+}

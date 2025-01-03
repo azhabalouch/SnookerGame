@@ -75,7 +75,7 @@ class SnookerTable {
       { x: this.tableOffsetX + this.tableWidth / 2, y: this.tableOffsetY + this.tableHeight - this.pocketRadius + this.pushBackPocket * 2 },
     ];
 
-    const sensorRadius = 3;
+    const sensorRadius = 5;
 
     this.pockets = this.pocketPositions.map((p) =>
       Matter.Bodies.circle(p.x, p.y, sensorRadius, {
