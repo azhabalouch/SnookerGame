@@ -1,5 +1,14 @@
-// Importing required modules from Matter.js
-const { 
+/*****************************************************************************
+ * Snooker Game - Main Sketch
+ * 
+ * This file sets up the p5.js canvas, initializes the Matter.js engine,
+ * creates the snooker table, balls, cues, and handles the main game loop
+ * (draw function). It also defines various UI elements like start button,
+ * sliders, and confirms the cue ball position.
+ *****************************************************************************/
+
+// Importing the required modules from Matter.js
+const {
   Engine,
   Render,
   Runner,
@@ -11,49 +20,56 @@ const {
   MouseConstraint
 } = Matter;
 
-// Declaring variables for the game
-var 
-  canvas,                 // The canvas where the game will be rendered
-  engine,                 // Physics engine instance
-  world,                  // World instance for the physics engine
-  snookerTable,           // Snooker table instance
-  balls = [],             // Array to hold ball instances
-  cue,                    // Cue instance
-  cueBall,                // Reference to the cue ball
-  velocityMagnitude,      // Magnitude of velocity for ball movement
-  dpHeight = 50,          // Display panel height
-  player1Score = 0,       // Score for Player 1
-  player2Score = 0,       // Score for Player 2
-  currentPlayer = 1,      // Indicator for the current player (1 or 2)
-  timer = 60,             // Timer for the game
-  timerInterval,          // Interval ID for the timer
-  foulMessageVisible = false,  // Visibility flag for foul messages
-  foulMessageTimeout,     // Timeout ID for foul message visibility
-  IncorrectMessageVisible = false, // Visibility flag for incorrect move messages
-  IncorrectMessageTimeout,// Timeout ID for incorrect move message visibility
-  gameStarted = false,    // Flag to indicate if the game has started
-  buttonStart,            // Start button element
-  Btn_confirmCueballPos,  // Button to confirm cue ball position
-  ignoreNextClick = false,// Flag to ignore unintended mouse clicks
-  ballInHand = true,      // Indicates if the ball is in hand (free placement)
-  mouseConstraint;        // Mouse constraint for interactions
+// Global variables for the game
+let canvas;                             // p5.js canvas
+let engine;                             // Matter.js engine instance
+let world;                              // Matter.js world
+let snookerTable;                       // SnookerTable instance
+let balls = [];                         // Array of Ball instances
+let coloredBalls = [];                  // Array containing labels of colored balls
+let coloredBallsPosition = [];          // Position references for each colored ball
+let coloredBallData = [];               // Colors and label reference for each colored ball
+let cue;                                // Cue instance
+let cueBall;                            // Reference to the cue ball (white ball)
+let velocityMagnitude;                  // Magnitude of velocity for the cue ball
+let dpHeight = 50;                      // Display panel height
+let player1Score = 0;                   // Score for Player 1
+let player2Score = 0;                   // Score for Player 2
+let currentPlayer = 1;                  // Tracks the current player (1 or 2)
+let timer = 60;                         // Countdown timer (seconds)
+let timerInterval;                      // Interval ID for the timer
+let foulMessageVisible = false;         // Foul message visibility flag
+let foulMessageTimeout;                 // Timeout for hiding the foul message
+let IncorrectMessageVisible = false;    // Incorrect move message visibility flag
+let IncorrectMessageTimeout;            // Timeout for hiding the incorrect move message
+let gameStarted = false;                // Flag to indicate game start
+let buttonStart;                        // Start button
+let Btn_confirmCueballPos;              // Button to confirm the cue ball position
+let ignoreNextClick = false;            // Flag to ignore the first click after game start
+let ballInHand = true;                  // Indicates if cue ball is in hand (placed freely)
+let isCueShotTaken;                     // Flag to check if a valid cue shot was taken
+let mouseConstraint;                    // Mouse constraint for positioning the cue ball
+let againTurn = false;                  // Flag indicating if the same player continues
+let redBallPotted = false;              // Flag indicating a red ball was potted
+let onlyColoredBalls = false;           // Flag indicating only colored balls to be potted
+let redBallsRemaining = 15;             // Counter for remaining red balls
 
 /**
- * The setup function initializes the game and its components.
+ * setup()
+ *  - Initializes the Matter.js engine, creates the snooker table and balls.
+ *  - Sets up all UI elements (buttons, sliders).
+ *  - Attaches collision handlers.
  */
 function setup() {
-  // Set frame rate and create canvas
   frameRate(60);
   canvas = createCanvas(1000, 600);
 
-  // Initialize physics engine and world
+  // Create physics engine and world
   engine = Engine.create();
   world = engine.world;
+  engine.gravity.y = 0; // Disable gravity on the y-axis (top-view game)
 
-  // Disable gravity in the y-axis for top-view gameplay
-  engine.gravity.y = 0;
-
-  // Create the snooker table with specified dimensions and colors
+  // Initialize snooker table
   snookerTable = new SnookerTable({
     tableWidth: 800,
     tableOffsetX: 150,
@@ -67,8 +83,9 @@ function setup() {
     },
   });
 
-  // Initialize balls and position them on the table
+  // Create and place all balls on the table
   Ball.initializeBalls(
+    1,          // <-- pass mode=1 to create standard set including cue ball
     snookerTable.tableWidth,
     snookerTable.tableHeight,
     snookerTable.tableOffsetX,
@@ -77,37 +94,49 @@ function setup() {
     snookerTable.dRadius
   );
 
-  // Separate the cue ball from the other balls
+  // Identify the cue ball from the global balls array
   cueBall = balls.find(ball => ball.body.label === "cueBall").body;
 
-  // Create a cue object to interact with the cue ball
+  // Build an array of labels for all colored balls
+  let j = 0;
+  for (let i = 0; i < balls.length; i++) {
+    if (balls[i].body.label !== "redBall" && balls[i].body.label !== "cueBall") {
+      coloredBalls[j] = balls[i].body.label;
+      j++;
+    }
+  }
+
+  // Create the cue linked to the cue ball
   cue = new Cue(cueBall);
 
-  // Initialize UI elements and interactions
-  gameStartBtn();          // Create the game start button
-  slider();                // Initialize sliders
-  mouseInteraction();      // Enable mouse interactions
-  cueBallConfirmPos();     // Confirm cue ball position
+  // Set up UI elements and interactions
+  gameStartBtn();     // "Start Game" button
+  slider();           // Slider for cue ball speed
+  mouseInteraction(); // Enable mouse interactions for placing the cue ball
+  cueBallConfirmPos();// Button to confirm cue ball position in the "D"
 
-  // Add collision event listener for ball-pocket interactions
-  Matter.Events.on(engine, 'collisionStart', handlePocketCollision);
+  // Collision events (pocket collision and foul detection)
+  Events.on(engine, 'collisionStart', handlePocketCollision);
+  Events.on(engine, 'collisionStart', handleFoul);
 
-  // Start the physics engine runner
-  Matter.Runner.run(engine);
+  // Run the Matter.js engine
+  Runner.run(engine);
 }
 
 /**
- * The draw function continuously renders the game screen.
+ * draw()
+ *  - Continuously called by p5.js to render the game.
+ *  - Renders either the start screen or the main game screen depending on 
+ *    whether the game has started.
  */
 function draw() {
-  // Set background color
   background("#154734");
 
   if (!gameStarted) {
-    // Render the start screen if the game hasn't started
+    // If game hasn't started, display the start screen
     displayStartScreen();
   } else {
-    // Render the main game screen during gameplay
+    // Otherwise, display the main game interface
     displayGameScreen();
   }
 }

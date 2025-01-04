@@ -33,44 +33,18 @@ function displayGameScreen() {
   // Draw all the balls
   balls.forEach((ball) => ball.draw());
 
-  // If it's the first turn and the cue ball is in hand, allow positioning
-  if (ballInHand) {
-    // Temporarily disable collisions for all non-cue balls
-    for (let i = 0; i < balls.length; i++) {
-      if (balls[i].body.label !== 'cueBall') {
-        balls[i].body.collisionFilter.mask = 0;
-      }
-    }
-
-    // Show the button to confirm cue ball position
-    Btn_confirmCueballPos.show();
-
-    // If the cue ball is incorrectly positioned, display a warning message
-    if (IncorrectMessageVisible) {
-      push();
-        fill("red");
-        textAlign(CENTER, CENTER);
-        textSize(24);
-        textStyle(BOLD);
-        text("Incorrect Position for cueBall!", width / 2, height / 3);
-      pop();
-    }
-
-    // Instruction to place the cue ball in the "D"
-    push();
-      fill("White");
-      textAlign(CENTER, CENTER);
-      textSize(24);
-      text("Place the white ball on desired position on 'D'", width / 2, dpHeight * 1.25);
-    pop();
-
-    // End the function here, so the rest of the UI won't draw yet
-    return;
-  }
-
   // -----------------------------------------
   // Display scoring information
   // -----------------------------------------
+
+  if (againTurn){
+    if (currentPlayer === 1){
+      currentPlayer = 2;
+    } else {
+      currentPlayer = 1;
+    }
+    againTurn = false;
+  }
 
   // Show the score of the current player in bold yellow
   push();
@@ -106,10 +80,10 @@ function displayGameScreen() {
     textAlign(CENTER);
     textSize(24);
     textStyle(BOLD);
-    text(`Player ${currentPlayer === 1 ? "One" : "Two"}'s Turn`, width / 2 + 5, dpHeight);
+    text(`Player ${currentPlayer === 1 ? "One" : "Two"}'s Turn`, width / 2 + 25, dpHeight);
   pop();
 
-  // Display foul message if triggered (e.g., by a timer running out)
+  // Display foul message if triggered (i.e., by a timer running out)
   if (foulMessageVisible) {
     push();
       fill("red");
@@ -118,6 +92,45 @@ function displayGameScreen() {
       textStyle(BOLD);
       text("Foul! Next player's turn.", width / 2, height / 2);
     pop();
+  }
+
+  // -----------------------------------------
+  // First turn
+  // -----------------------------------------
+
+  // If it's the first turn and the cue ball is in hand, allow positioning
+  if (ballInHand) {
+    // Temporarily disable collisions for all non-cue balls
+    for (let i = 0; i < balls.length; i++) {
+      if (balls[i].body.label !== 'cueBall') {
+        balls[i].body.collisionFilter.mask = 0;
+      }
+    }
+
+    // Show the button to confirm cue ball position
+    Btn_confirmCueballPos.show();
+
+    // If the cue ball is incorrectly positioned, display a warning message
+    if (IncorrectMessageVisible) {
+      push();
+        fill("red");
+        textAlign(CENTER, CENTER);
+        textSize(24);
+        textStyle(BOLD);
+        text("Incorrect Position for cueBall!", width / 2, height / 3);
+      pop();
+    }
+
+    // Instruction to place the cue ball in the "D"
+    push();
+      fill("White");
+      textAlign(CENTER, CENTER);
+      textSize(24);
+      text("White ball in hand, move it to desired position on 'D'", width / 2 + 50, dpHeight * 1.4);
+    pop();
+
+    // End the function here, so the rest of the UI won't draw yet
+    return;
   }
 
   // -----------------------------------------

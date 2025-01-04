@@ -68,7 +68,7 @@ class SnookerTable {
         b.y + b.height / 2, // Center y-coordinate
         b.width, // Width of the body
         b.height, // Height of the body
-        { isStatic: true } // Make the body static
+        { isStatic: true, label: "cushion" } // Make the body static
       )
     );
 
@@ -91,7 +91,7 @@ class SnookerTable {
     ];
 
     // Define the radius for pocket sensors
-    const sensorRadius = 5;
+    const sensorRadius = 10;
 
     // Create static sensor bodies for each pocket
     this.pockets = this.pocketPositions.map((p) =>
