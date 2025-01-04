@@ -153,7 +153,25 @@ function handleFoul(event) {
  * cueBall shot on click
  */
 function mouseClicked() {
-  shootCueBallByAngle();
+  if (ignoreNextClick) {
+    ignoreNextClick = false;
+    return;
+  }
+
+  // Table boundaries for validating mouse clicks
+  const tableLeft = snookerTable.tableOffsetX;
+  const tableRight = snookerTable.tableOffsetX + snookerTable.tableWidth;
+  const tableTop = snookerTable.tableOffsetY;
+  const tableBottom = snookerTable.tableOffsetY + snookerTable.tableHeight;
+
+  // If Click is within the table and that the cue ball is at rest
+  if (
+    mouseX >= tableLeft && mouseX <= tableRight &&
+    mouseY >= tableTop && mouseY <= tableBottom &&
+    velocityMagnitude <= 0.009
+  ) {
+    shootCueBallByAngle();
+  }
 }
 
 // Function triggered on a key press event
@@ -178,5 +196,28 @@ function keyPressed() {
   // If down arrow is pressed
   else if (keyCode === DOWN_ARROW) {
     cueAngle += angleStep;
+  }
+
+  if (speedSlider) {
+    let currentValue = speedSlider.value();
+    
+    if (keyCode === RIGHT_ARROW) {
+      // Increase slider value
+      speedSlider.value(Math.min(currentValue + 1, 20));
+    } else if (keyCode === LEFT_ARROW) {
+      // Decrease slider value
+      speedSlider.value(Math.max(currentValue - 1, 1));
+    }
+  }
+
+  if (keyCode === ENTER) {
+    isMouseControlled = !isMouseControlled; // Toggle control mode
+  } 
+  if (!isMouseControlled) {
+    if (key === UP_ARROW) {
+      cueAngle -= angleStep; // Rotate counterclockwise
+    } else if (key === DOWN_ARROW) {
+      cueAngle += angleStep; // Rotate clockwise
+    }
   }
 }

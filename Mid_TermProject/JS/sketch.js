@@ -53,8 +53,8 @@ let redBallPotted = false;              // Flag indicating a red ball was potted
 let onlyColoredBalls = false;           // Flag indicating only colored balls to be potted
 let redBallsRemaining = 15;             // Counter for remaining red balls
 let cueAngle = 0;                       // The cue's current angle (in radians)
-const angleStep = 0.05;                 // How much to rotate on each up/down press
-
+let angleStep = Math.PI / 90;           // How much to rotate on each up/down press
+let isMouseControlled = true;           // Default control mode
 
 /**
  * setup()

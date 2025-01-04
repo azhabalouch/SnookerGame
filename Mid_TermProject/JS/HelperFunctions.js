@@ -268,52 +268,45 @@ function initializeGame(mode) {
 - Prevents immediate shot if we are still placing the cue ball.
 */
 function shootCueBallByAngle() {
-  if (ignoreNextClick) {
-    ignoreNextClick = false;
-    return;
-  }
+  const forceMagnitude = speedSlider.value() / 1000;
 
-  // Table boundaries for validating mouse clicks
-  const tableLeft = snookerTable.tableOffsetX;
-  const tableRight = snookerTable.tableOffsetX + snookerTable.tableWidth;
-  const tableTop = snookerTable.tableOffsetY;
-  const tableBottom = snookerTable.tableOffsetY + snookerTable.tableHeight;
+  let forceDirection;
 
-  // Ensure click is within the table and that the cue ball is at rest
-  if (
-    mouseX >= tableLeft && mouseX <= tableRight &&
-    mouseY >= tableTop && mouseY <= tableBottom &&
-    velocityMagnitude <= 0.009
-  ) {
-    const forceMagnitude = speedSlider.value() / 1000;
-
-    // Calculate the direction from the cue ball to mouse
-    const forceDirection = {
+  // Calculate the direction from the cue ball to mouse
+  if (isMouseControlled) {
+    // Mouse-controlled: calculate direction from cue ball to mouse
+    forceDirection = {
       x: mouseX - cueBall.position.x,
       y: mouseY - cueBall.position.y,
     };
-
-    // Normalize the direction vector
-    const directionMagnitude = Math.sqrt(
-      forceDirection.x ** 2 + forceDirection.y ** 2
-    );
-    const normalizedDirection = {
-      x: forceDirection.x / directionMagnitude,
-      y: forceDirection.y / directionMagnitude,
+  } else {
+    // Arrow key-controlled: use the cueAngle for force direction
+    forceDirection = {
+      x: Math.cos(cueAngle),
+      y: Math.sin(cueAngle),
     };
-
-    // Apply force to the cue ball
-    Matter.Body.applyForce(cueBall, cueBall.position, {
-      x: normalizedDirection.x * forceMagnitude,
-      y: normalizedDirection.y * forceMagnitude,
-    });
-
-    isCueShotTaken = true;
-
-    // Switch player turn after a short delay
-    setTimeout(() => {
-      resetTimer();
-      currentPlayer = (currentPlayer === 1) ? 2 : 1;
-    }, 1500);
   }
+
+  // Normalize the direction vector
+  const directionMagnitude = Math.sqrt(
+    forceDirection.x ** 2 + forceDirection.y ** 2
+  );
+  const normalizedDirection = {
+    x: forceDirection.x / directionMagnitude,
+    y: forceDirection.y / directionMagnitude,
+  };
+
+  // Apply force to the cue ball
+  Matter.Body.applyForce(cueBall, cueBall.position, {
+    x: normalizedDirection.x * forceMagnitude,
+    y: normalizedDirection.y * forceMagnitude,
+  });
+
+  isCueShotTaken = true;
+
+  // Switch player turn after a short delay
+  setTimeout(() => {
+    resetTimer();
+    currentPlayer = (currentPlayer === 1) ? 2 : 1;
+  }, 1500);
 }

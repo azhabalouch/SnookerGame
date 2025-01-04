@@ -10,7 +10,6 @@ class Cue {
   constructor(cueBall, cueLength = 200) {
     this.cueBall = cueBall;
     this.cueLength = cueLength;
-    this.angle = 0;
     this.createCue();
   }
 
@@ -50,15 +49,25 @@ class Cue {
    * @param {Object} mousePos - Current mouse coordinates (x, y).
    */
   drawCue(mousePos) {
-    // Calculate angle between cue ball and mouse
-    this.angle = Math.atan2(
-      mousePos.y - this.cueBall.position.y,
-      mousePos.x - this.cueBall.position.x
-    );
+    if (isMouseControlled) {
+      // Mouse-controlled: calculate angle based on mouse position
+      cueAngle = Math.atan2(
+        mousePos.y - this.cueBall.position.y,
+        mousePos.x - this.cueBall.position.x
+      );
+    } else {
+      // Arrow key-controlled: adjust angle based on key hold
+      if (keyIsDown(UP_ARROW)) {
+        cueAngle -= angleStep; // Rotate counterclockwise
+      }
+      if (keyIsDown(DOWN_ARROW)) {
+        cueAngle += angleStep; // Rotate clockwise
+      }
+    }
 
     push();
       translate(this.cueBall.position.x, this.cueBall.position.y);
-      rotate(this.angle);
+      rotate(cueAngle);
       noStroke();
 
       // Cue stick
