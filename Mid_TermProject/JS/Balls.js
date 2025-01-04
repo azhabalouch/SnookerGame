@@ -4,12 +4,12 @@
 
 class Ball {
   /**
-   * Creates a new Ball instance.
-   * @param {number} x - X position for the ball's center.
-   * @param {number} y - Y position for the ball's center.
-   * @param {number} diameter - The diameter of the ball.
-   * @param {Object} color - Light/medium/dark color object.
-   * @param {string} label - Unique label for identification (e.g., "redBall").
+   * Constructs a new Ball with position, diameter, color, and label.
+   * @param {number} x - X coordinate
+   * @param {number} y - Y coordinate
+   * @param {number} diameter - Ball diameter
+   * @param {Object} color - Light/medium/dark color definitions
+   * @param {string} label - Unique label (e.g., "redBall")
    */
   constructor(x, y, diameter, color, label) {
     this.body = Bodies.circle(x, y, diameter / 2, {
@@ -22,7 +22,7 @@ class Ball {
   }
 
   /**
-   * Renders the ball with a radial gradient and slight shadow.
+   * Renders the ball with a radial gradient and shadow.
    */
   draw() {
     const { position: pos, angle } = this.body;
@@ -50,11 +50,10 @@ class Ball {
   }
 
   /**
-   * initializeBalls(mode, tableWidth, tableHeight, offsetX, offsetY, baulkLineX, dRadius)
-   *  - Creates and places snooker balls in one of 3 modes:
-   *    1) Fully standard layout,
-   *    2) Random reds only (colors & cue in standard),
-   *    3) Random reds + random colors (cue in standard).
+   * Places snooker balls in one of three modes:
+   * 1) Standard layout (red + colored + cue),
+   * 2) Random reds, standard colors/cue,
+   * 3) Random reds and colors, standard cue.
    */
   static initializeBalls(
     mode,
@@ -69,7 +68,6 @@ class Ball {
     const centerX = tableWidth / 2 + offsetX;
     const centerY = tableHeight / 2 + offsetY;
 
-    // Common data for the 6 colored balls + cue ball in their standard spots.
     coloredBallsPosition = [
       { x: baulkLineX,             y: centerY + dRadius,    d: ballDiameter }, // Yellow
       { x: baulkLineX,             y: centerY - dRadius,    d: ballDiameter }, // Green
@@ -139,7 +137,7 @@ class Ball {
       },
     ];
 
-    // Helper function: create 15 reds in random positions
+    // Creates 15 reds in random positions
     const placeRedsRandomly = (count) => {
       for (let i = 0; i < count; i++) {
         const randX = random(offsetX + ballDiameter, offsetX + tableWidth - ballDiameter);
@@ -161,9 +159,9 @@ class Ball {
       }
     };
 
-    // Helper function: place 15 reds in standard triangle formation
+    // Creates 15 reds in a standard triangle formation
     const placeRedsStandard = () => {
-      const rows = 5; // 1 + 2 + 3 + 4 + 5 = 15 reds
+      const rows = 5; // 1+2+3+4+5 = 15
       const startX = centerX * 1.25 + ballDiameter + 5;
       const startY = centerY;
 
@@ -186,31 +184,25 @@ class Ball {
       }
     };
 
-    // Helper function: place the color (and optionally cue) balls in standard spots
+    // Places the 6 colors (and optionally the cue) in standard positions
     const placeColorsStandard = (includeCue = true) => {
       coloredBallData.forEach((ballDef, index) => {
         const { x, y, d } = coloredBallsPosition[index];
         const { label, color } = ballDef;
 
-        // If we're asked NOT to place the cue, skip it
         if (!includeCue && label === 'cueBall') return;
-
         balls.push(new Ball(x, y, d, color, label));
       });
     };
 
-    // Helper function: place the color balls in random spots, but optionally skip the cue
+    // Places the 6 colored balls randomly, optionally skipping the cue
     const placeColorsRandom = (includeCue = true) => {
-      coloredBallData.forEach((ballDef) => {
-        // Skip the cue if not wanted
+      coloredBallData.forEach(ballDef => {
         if (!includeCue && ballDef.label === 'cueBall') return;
-
         const randX = random(offsetX + ballDiameter, offsetX + tableWidth - ballDiameter);
         const randY = random(offsetY + ballDiameter, offsetY + tableHeight - ballDiameter);
 
-        balls.push(
-          new Ball(randX, randY, ballDiameter, ballDef.color, ballDef.label)
-        );
+        balls.push(new Ball(randX, randY, ballDiameter, ballDef.color, ballDef.label));
       });
     };
 
@@ -222,29 +214,26 @@ class Ball {
       // Standard everything
       case 1: 
         placeRedsStandard(); 
-        placeColorsStandard(true); // includeCue = true
+        placeColorsStandard(true);
         break;
 
       // =========== MODE 2 =========== 
-      // Random reds, but standard colors & cue
+      // Random reds, but standard colors & cueball
       case 2:
         placeRedsRandomly(15);
-        placeColorsStandard(true); // put all 6 colors + cue in standard spots
+        placeColorsStandard(true);
         break;
 
       // =========== MODE 3 =========== 
-      // Random reds, random colors, but standard cue
+      // Random reds, random colors, but standard cueball
       case 3:
         placeRedsRandomly(15);
-
-        // We'll place the 6 colored balls randomly,
-        // but skip the cue ball in the random distribution.
         placeColorsRandom(false);
 
         // Now place the cue ball in its standard position
-        const cueIndex = 6; // last entry in coloredBallsPosition
+        const cueIndex = 6;
         const { x, y, d } = coloredBallsPosition[cueIndex];
-        const cueColor = coloredBallData[cueIndex].color; // { light, medium, dark }
+        const cueColor = coloredBallData[cueIndex].color;
         balls.push(new Ball(x, y, d, cueColor, 'cueBall'));
         break;
 

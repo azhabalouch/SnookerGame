@@ -19,7 +19,7 @@ function handlePocketCollision(event) {
     const bodyA = pair.bodyA;
     const bodyB = pair.bodyB;
 
-    // 1) Check for pocket-ball collisions
+    // Check for pocket-ball collisions
     if (
       (bodyA.label === 'pocket' && bodyB.label.endsWith('Ball')) ||
       (bodyB.label === 'pocket' && bodyA.label.endsWith('Ball'))
@@ -28,7 +28,7 @@ function handlePocketCollision(event) {
       const ball = bodyA.label.endsWith('Ball') ? bodyA : bodyB;
 
       // ----------------------------------------------------------
-      // A) Cue ball in pocket -> always a foul
+      // Cue ball in pocket -> always a foul
       // ----------------------------------------------------------
       if (ball.label === 'cueBall') {
         // Foul penalty for cue ball
@@ -40,15 +40,14 @@ function handlePocketCollision(event) {
 
         // Reset cue ball to default position
         resetBallPosition(ball, coloredBallsPosition[6].x, coloredBallsPosition[6].y);
-        return; // No further logic needed for cue ball
+        return;
       }
 
       // ----------------------------------------------------------
-      // B) If we're in final colors-only stage (no more reds)
+      // If we're in final colors-only stage (no more reds)
       // ----------------------------------------------------------
       if (onlyColoredBalls) {
         if (checkIfColored(ball.label)) {
-          // Example approach: 
           //  - In real snooker, you pot colors in ascending order (yellow->green->brown->blue->pink->black).
           //  - For demonstration, we'll simply award points and remove the color. 
           scoreDistribute(ballValue(ball.label));
@@ -56,18 +55,12 @@ function handlePocketCollision(event) {
           // Remove the potted color from the table entirely
           Matter.World.remove(world, ball);
           balls = balls.filter(b => b.body !== ball);
-
-          // If you're tracking which color is next or if the frame ends when black is potted, 
-          // you can implement that logic here.
-        } else {
-          // If it’s somehow a non-existent label or a redBall (which shouldn’t happen now),
-          // handle it as a foul or ignore. Adjust as needed.
         }
         return;
       }
 
       // ----------------------------------------------------------
-      // C) If reds are still available
+      // If reds are still available
       // ----------------------------------------------------------
       if (redBallsRemaining > 0) {
         // Potting a red
@@ -156,151 +149,34 @@ function handleFoul(event) {
   });
 }
 
-
-
 /**
- * mouseClicked()
- *  - Handles the cue ball shot when the table is clicked.
- *  - Prevents immediate shot if we are still placing the cue ball.
+ * cueBall shot on click
  */
 function mouseClicked() {
-  console.log("mouseClicked triggered!");
-  // Ignore the first click right after the game starts
-  if (ignoreNextClick) {
-    ignoreNextClick = false;
-    return;
-  }
-
-  // Skip if we're still placing the cue ball
-  if (ballInHand) return;
-
-  // Table boundaries for validating mouse clicks
-  const tableLeft = snookerTable.tableOffsetX;
-  const tableRight = snookerTable.tableOffsetX + snookerTable.tableWidth;
-  const tableTop = snookerTable.tableOffsetY;
-  const tableBottom = snookerTable.tableOffsetY + snookerTable.tableHeight;
-
-  // Ensure click is within the table and that the cue ball is at rest
-  if (
-    mouseX >= tableLeft && mouseX <= tableRight &&
-    mouseY >= tableTop && mouseY <= tableBottom &&
-    velocityMagnitude <= 0.009
-  ) {
-    const forceMagnitude = speedSlider.value() / 1000;
-
-    // Calculate the direction from the cue ball to mouse
-    const forceDirection = {
-      x: mouseX - cueBall.position.x,
-      y: mouseY - cueBall.position.y,
-    };
-
-    // Normalize the direction vector
-    const directionMagnitude = Math.sqrt(
-      forceDirection.x ** 2 + forceDirection.y ** 2
-    );
-    const normalizedDirection = {
-      x: forceDirection.x / directionMagnitude,
-      y: forceDirection.y / directionMagnitude,
-    };
-
-    // Apply force to the cue ball
-    Matter.Body.applyForce(cueBall, cueBall.position, {
-      x: normalizedDirection.x * forceMagnitude,
-      y: normalizedDirection.y * forceMagnitude,
-    });
-
-    isCueShotTaken = true;
-
-    // Switch player turn after a short delay
-    setTimeout(() => {
-      resetTimer();
-      currentPlayer = (currentPlayer === 1) ? 2 : 1;
-    }, 1500);
-  }
+  shootCueBallByAngle();
 }
 
+// Function triggered on a key press event
 function keyPressed() {
-  if (key === '1') {
-    resetBalls();               //remove old from Matter.World + empty the array
-    Ball.initializeBalls(
-      1,
-      snookerTable.tableWidth,
-      snookerTable.tableHeight,
-      snookerTable.tableOffsetX,
-      snookerTable.tableOffsetY,
-      snookerTable.baulkLineX,
-      snookerTable.dRadius
-    );
-
-    // Identify the cue ball from the global balls array
-    cueBall = balls.find(ball => ball.body.label === "cueBall").body;
-
-    // Build an array of labels for all colored balls
-    let j = 0;
-    for (let i = 0; i < balls.length; i++) {
-      if (balls[i].body.label !== "redBall" && balls[i].body.label !== "cueBall") {
-        coloredBalls[j] = balls[i].body.label;
-        j++;
-      }
-    }
-
-    // Create the cue linked to the cue ball
-    cue = new Cue(cueBall);
-  } 
-  else if (key === '2') {
+  // Check if the pressed key corresponds to one of the game modes (1, 2, or 3)
+  if (key === '1' || key === '2' || key === '3') {
+    // Reset the balls on the table and clear any existing data
     resetBalls();
-    Ball.initializeBalls(
-      2,
-      snookerTable.tableWidth,
-      snookerTable.tableHeight,
-      snookerTable.tableOffsetX,
-      snookerTable.tableOffsetY,
-      snookerTable.baulkLineX,
-      snookerTable.dRadius
-    );
 
-    // Identify the cue ball from the global balls array
-    cueBall = balls.find(ball => ball.body.label === "cueBall").body;
+    // Initialize the game for the specified mode 
+    initializeGame(parseInt(key));
+  }
 
-    // Build an array of labels for all colored balls
-    let j = 0;
-    for (let i = 0; i < balls.length; i++) {
-      if (balls[i].body.label !== "redBall" && balls[i].body.label !== "cueBall") {
-        coloredBalls[j] = balls[i].body.label;
-        j++;
-      }
-    }
-
-    // Create the cue linked to the cue ball
-    cue = new Cue(cueBall);
-  } 
-  else if (key === '3') {
-    resetBalls();
-    Ball.initializeBalls(
-      3,
-      snookerTable.tableWidth,
-      snookerTable.tableHeight,
-      snookerTable.tableOffsetX,
-      snookerTable.tableOffsetY,
-      snookerTable.baulkLineX,
-      snookerTable.dRadius
-    );
-
-    // Identify the cue ball from the global balls array
-    cueBall = balls.find(ball => ball.body.label === "cueBall").body;
-
-    // Build an array of labels for all colored balls
-    let j = 0;
-    for (let i = 0; i < balls.length; i++) {
-      if (balls[i].body.label !== "redBall" && balls[i].body.label !== "cueBall") {
-        coloredBalls[j] = balls[i].body.label;
-        j++;
-      }
-    }
-
-    // Create the cue linked to the cue ball
-    cue = new Cue(cueBall);
+  // If spacebar is pressed
+  if (key === ' ') {  
+    shootCueBallByAngle();
+  }
+  // If up arrow is pressed
+  else if (keyCode === UP_ARROW) {
+    cueAngle -= angleStep;
+  }
+  // If down arrow is pressed
+  else if (keyCode === DOWN_ARROW) {
+    cueAngle += angleStep;
   }
 }
-
-

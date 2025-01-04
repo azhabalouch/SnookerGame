@@ -1,9 +1,8 @@
 /**
- * Displays the start screen for the game. This includes a welcome message
- * and instructions to click the "Start Game" button.
+ * Displays the start screen with a welcome message and a prompt to begin the game.
  */
 function displayStartScreen() {
-  push(); // Save current drawing style and transformations
+  push(); // Save current style/transform
     textAlign(CENTER, CENTER);
     fill("white");
     textSize(32);
@@ -12,78 +11,77 @@ function displayStartScreen() {
     // Main title
     text("Welcome to Snooker!", width / 2, height / 3);
 
-    // Instructional text
+    // Prompt
     textSize(18);
     text("Click 'Start Game' to begin.", width / 2, height / 2.5);
-  pop(); // Restore previous drawing style and transformations
+  pop(); // Restore style/transform
 }
 
 /**
- * Renders the main game screen. This function:
- * 1. Draws the snooker table and all balls.
- * 2. Handles first-turn logic if the cue ball is in hand.
- * 3. Displays player scores, turn information, and foul messages.
- * 4. Draws the cue stick if the cue ball is stationary.
- * 5. Updates the game timer display.
+ * Shows the main game screen, including the table, balls, scoring, turn details,
+ * foul messages, cue stick (when ball is still), and the game timer.
  */
 function displayGameScreen() {
   // Draw the snooker table
   snookerTable.draw();
 
-  // Draw all the balls
+  // Draw all balls
   balls.forEach((ball) => ball.draw());
 
-  // -----------------------------------------
-  // Display scoring information
-  // -----------------------------------------
-
+  // Handle "againTurn" switch
   if (againTurn){
-    if (currentPlayer === 1){
-      currentPlayer = 2;
-    } else {
-      currentPlayer = 1;
-    }
+    currentPlayer = (currentPlayer === 1) ? 2 : 1;
     againTurn = false;
   }
 
-  // Show the score of the current player in bold yellow
+  // Highlight the current player's score in yellow
   push();
     fill("Yellow");
     textAlign(LEFT);
     textSize(24);
     textStyle(BOLD);
     text(
-      `Player ${currentPlayer === 1 ? "1 Score: " + player1Score : "2 Score: " + player2Score}`,
+      `Player ${
+        currentPlayer === 1
+          ? "1 Score: " + player1Score
+          : "2 Score: " + player2Score
+      }`,
       dpHeight,
       dpHeight
     );
   pop();
 
-  // Show the opponent's score in bold white
+  // Show the opponent’s score in white
   push();
     fill("white");
     textAlign(LEFT);
     textSize(18);
     textStyle(BOLD);
     text(
-      `Player ${currentPlayer === 1 ? "2 Score: " + player2Score : "1 Score: " + player1Score}`,
+      `Player ${
+        currentPlayer === 1
+          ? "2 Score: " + player2Score
+          : "1 Score: " + player1Score
+      }`,
       dpHeight,
       dpHeight * 1.5
     );
   pop();
 
-  // -----------------------------------------
-  // Display turn information
-  // -----------------------------------------
+  // Indicate whose turn it is
   push();
     fill("lightgreen");
     textAlign(CENTER);
     textSize(24);
     textStyle(BOLD);
-    text(`Player ${currentPlayer === 1 ? "One" : "Two"}'s Turn`, width / 2 + 25, dpHeight);
+    text(
+      `Player ${currentPlayer === 1 ? "One" : "Two"}'s Turn`,
+      width / 2 + 25,
+      dpHeight
+    );
   pop();
 
-  // Display foul message if triggered (i.e., by a timer running out)
+  // Show foul message if active
   if (foulMessageVisible) {
     push();
       fill("red");
@@ -94,11 +92,7 @@ function displayGameScreen() {
     pop();
   }
 
-  // -----------------------------------------
-  // First turn
-  // -----------------------------------------
-
-  // If it's the first turn and the cue ball is in hand, allow positioning
+  // Handle cue ball in hand on first turn
   if (ballInHand) {
     // Temporarily disable collisions for all non-cue balls
     for (let i = 0; i < balls.length; i++) {
@@ -107,10 +101,10 @@ function displayGameScreen() {
       }
     }
 
-    // Show the button to confirm cue ball position
+    // Show confirm button for cue ball position
     Btn_confirmCueballPos.show();
 
-    // If the cue ball is incorrectly positioned, display a warning message
+    // Display incorrect positioning warning if needed
     if (IncorrectMessageVisible) {
       push();
         fill("red");
@@ -121,35 +115,30 @@ function displayGameScreen() {
       pop();
     }
 
-    // Instruction to place the cue ball in the "D"
+    // Instruction to place the cue ball within the "D"
     push();
       fill("White");
       textAlign(CENTER, CENTER);
       textSize(24);
-      text("White ball in hand, move it to desired position on 'D'", width / 2 + 50, dpHeight * 1.4);
+      text(
+        "White ball in hand, move it to desired position on 'D'",
+        width / 2 + 50,
+        dpHeight * 1.4
+      );
     pop();
-
-    // End the function here, so the rest of the UI won't draw yet
-    return;
+    return; // Skip further UI until cue ball is confirmed
   }
 
-  // -----------------------------------------
-  // Cue ball velocity and cue stick
-  // -----------------------------------------
-
-  // Calculate the current cue ball velocity
+  // Check cue ball velocity and render the cue stick if nearly stationary
   velocityMagnitude = Math.sqrt(
     cueBall.velocity.x ** 2 + cueBall.velocity.y ** 2
   );
 
-  // If cue ball is almost stationary, draw and update the cue stick
   if (velocityMagnitude <= 0.009) {
     cue.drawCue({ x: mouseX, y: mouseY });
     cue.update();
   }
 
-  // -----------------------------------------
   // Draw the game timer
-  // -----------------------------------------
   drawTimer();
 }

@@ -1,17 +1,14 @@
 /*****************************************************************************
  * Snooker Game - Helper Functions
- * 
- * Utility functions for rule checking, scoring, UI interactions, etc.
+ *
+ * Provides utility methods for rules, scoring, UI, etc.
  *****************************************************************************/
 
 /**
- * checkIfCueBallonD()
- *  - Verifies the cue ball is placed correctly within the "D" area
- *    before confirming its position.
- * @returns {boolean} True if valid placement, otherwise false (and shows error).
+ * Checks if the cue ball is within the "D" area before confirming its position.
+ * @returns {boolean} True if valid, otherwise sets an error message.
  */
 function checkIfCueBallonD() {
-  // Distance from cue ball to the center of the D
   const distToD = dist(
     cueBall.position.x,
     cueBall.position.y,
@@ -19,12 +16,11 @@ function checkIfCueBallonD() {
     snookerTable.tableOffsetY + snookerTable.tableHeight / 2
   );
 
-  // Must be within the D circle and to the left of the baulk line X
   if (distToD <= snookerTable.dRadius && cueBall.position.x <= snookerTable.baulkLineX) {
     return true;
   }
 
-  // If invalid, show incorrect placement message
+  // Show an incorrect placement warning
   IncorrectMessageVisible = true;
   IncorrectMessageTimeout = setTimeout(() => {
     IncorrectMessageVisible = false;
@@ -34,20 +30,18 @@ function checkIfCueBallonD() {
 }
 
 /**
- * checkIfColored(ballName)
- *  - Checks if the given ball label is one of the colored balls.
- * @param {string} ballName - Label of the ball.
- * @returns {boolean} True if colored ball, false otherwise.
+ * Checks if the given ball label corresponds to one of the colored balls.
+ * @param {string} ballName
+ * @returns {boolean}
  */
 function checkIfColored(ballName) {
   return coloredBalls.includes(ballName);
 }
 
 /**
- * ballValue(ballName)
- *  - Returns the point value of a given ball label.
- * @param {string} ballName - Label of the ball.
- * @returns {number} Point value of the ball.
+ * Returns the point value for a given ball label.
+ * @param {string} ballName
+ * @returns {number}
  */
 function ballValue(ballName) {
   switch (ballName) {
@@ -64,19 +58,20 @@ function ballValue(ballName) {
   }
 }
 
+/**
+ * Checks for a foul if the cue ball hits the wrong ball first.
+ */
 function checkFoulCollision(bodyA, bodyB) {
-  // Identify which is the cue ball vs. the object ball.
   const cue = bodyA.label === 'cueBall' ? bodyA : bodyB;
   const objectBall = (cue === bodyA) ? bodyB : bodyA;
 
-  // If we're on a "red" shot but hit a color first => foul
+  // If the correct shot is a red but a color is hit first => foul
   if (!redBallPotted && !onlyColoredBalls) {
     if (checkIfColored(objectBall.label)) {
       scoreDistribute(-ballValue(objectBall.label));
     }
   }
-  // If we just potted a red (redBallPotted=true) and must pot a color,
-  // but the player hits another red first => foul
+  // If a red was just potted or it's colors-only, but a red is hit => foul
   if (redBallPotted || onlyColoredBalls) {
     if (objectBall.label === 'redBall') {
       scoreDistribute(ballValue('min'));
@@ -86,21 +81,13 @@ function checkFoulCollision(bodyA, bodyB) {
   isCueShotTaken = false;
 }
 
-
 /**
- * resetColoredBall(ballBody)
- *  - Looks up the ball's label in coloredBallData, finds its original index,
- *    and repositions it to coloredBallsPosition[index].
- * @param {Object} ballBody - The Matter.js body of the colored ball (e.g. ball.body).
+ * Resets a potted colored ball to its original position on the table.
  */
 function resetColoredBall(ballBody) {
-  // The ball's label is stored in ballBody.label
   const label = ballBody.label;
-
-  // Find the matching index in coloredBallData
   const index = coloredBallData.findIndex(item => item.label === label);
   if (index !== -1) {
-    // Grab the standard position (x,y) from coloredBallsPosition
     const { x, y } = coloredBallsPosition[index];
     resetBallPosition(ballBody, x, y);
   } else {
@@ -109,8 +96,7 @@ function resetColoredBall(ballBody) {
 }
 
 /**
- * resetBallPosition(ballBody, posX, posY)
- *  - Sets the ball's velocity to zero and repositions the given Matter.js body.
+ * Sets the ball's velocity to zero and repositions it.
  */
 function resetBallPosition(ballBody, posX, posY) {
   Matter.Body.setVelocity(ballBody, { x: 0, y: 0 });
@@ -118,10 +104,7 @@ function resetBallPosition(ballBody, posX, posY) {
 }
 
 /**
- * gameStartBtn()
- *  - Creates a "Start Game" button. Upon click, sets the game to started,
- *    hides the button, and ignores the next click (so the cue ball isn't 
- *    accidentally shot immediately).
+ * Creates the "Start Game" button and sets its behavior.
  */
 function gameStartBtn() {
   const buttonStart = createButton('Start Game');
@@ -135,9 +118,7 @@ function gameStartBtn() {
 }
 
 /**
- * slider()
- *  - Creates a vertical slider by rotating it -90°. This slider controls 
- *    the force applied to the cue ball.
+ * Creates a vertical slider (rotated -90°) for controlling cue ball force.
  */
 function slider() {
   const sliderPosX = -135;
@@ -147,15 +128,11 @@ function slider() {
   speedSlider.position(sliderPosX, sliderPosY);
   speedSlider.style('width', '400px');
   speedSlider.style('transform', 'rotate(-90deg)');
-  
-  // Hidden by default; displayed after confirming cue ball position
-  speedSlider.hide();
+  speedSlider.hide(); // Initially hidden
 }
 
 /**
- * cueBallConfirmPos()
- *  - Creates a "Confirm" button to lock the cue ball position if it's
- *    placed correctly in the "D" for the initial shot. 
+ * Adds a "Confirm" button for cue ball placement inside the "D."
  */
 function cueBallConfirmPos() {
   Btn_confirmCueballPos = createButton('Confirm');
@@ -166,25 +143,24 @@ function cueBallConfirmPos() {
     if (checkIfCueBallonD()) {
       Btn_confirmCueballPos.hide();
       ballInHand = false;
-      startTimer(); // Begin the turn timer
+      startTimer();
       speedSlider.show();
 
-      // Re-enable collisions for all non-cue balls
+      // Re-enable collisions for non-cue balls
       for (let i = 0; i < balls.length; i++) {
         if (balls[i].body.label !== 'cueBall') {
           balls[i].body.collisionFilter.mask = 1;
         }
       }
 
-      // Remove mouse constraint so the cue ball can't be moved further
+      // Remove mouse constraint to finalize cue ball placement
       Matter.World.remove(world, mouseConstraint);
     }
   });
 }
 
 /**
- * mouseInteraction()
- *  - Allows the player to move the cue ball with the mouse during "ball in hand".
+ * Allows the cue ball to be moved with the mouse while it's 'in hand.'
  */
 function mouseInteraction() {
   const canvasMouse = Mouse.create(canvas.elt);
@@ -200,9 +176,7 @@ function mouseInteraction() {
 }
 
 /**
- * scoreDistribute(value)
- *  - Adds/subtracts points to the current player's score.
- * @param {number} value - Positive or negative point value.
+ * Updates the current player's score by the specified value (positive or negative).
  */
 function scoreDistribute(value) {
   if (currentPlayer === 1) {
@@ -212,11 +186,134 @@ function scoreDistribute(value) {
   }
 }
 
-
 /**
- * Function to remove existing balls and clear the array
+ * Removes existing balls from the Matter.js world and clears the global array.
  */
 function resetBalls() {
   balls.forEach(b => Matter.World.remove(world, b.body));
   balls = [];
+}
+
+/**
+ * Starts the 60-second timer, switches players when time runs out, and shows a foul message briefly.
+ */
+function startTimer() {
+  timer = 60;
+  clearInterval(timerInterval);
+
+  timerInterval = setInterval(() => {
+    timer--;
+    if (timer <= 0) {
+      currentPlayer = (currentPlayer === 1) ? 2 : 1;
+      foulMessageVisible = true;
+
+      // Hide foul message after 2s
+      foulMessageTimeout = setTimeout(() => {
+        foulMessageVisible = false;
+      }, 2000);
+
+      timer = 60;
+    }
+  }, 1000);
+}
+
+/**
+ * Draws the current timer value on screen.
+ */
+function drawTimer() {
+  push();
+    textAlign(CENTER);
+    textSize(24);
+    textStyle(BOLD);
+    fill(255);
+    text(`${timer}`, width / 2, dpHeight*2);
+  pop();
+}
+
+/**
+ * Resets the timer to 60 seconds (e.g., on a successful shot).
+ */
+function resetTimer() {
+  timer = 60;
+}
+
+/**
+ * Helper function to initialize the game for a specific mode
+ */
+function initializeGame(mode) {
+  Ball.initializeBalls(
+    mode,                               // Game mode (1, 2, or 3)
+    snookerTable.tableWidth,            // Width of the snooker table
+    snookerTable.tableHeight,           // Height of the snooker table
+    snookerTable.tableOffsetX,          // X offset for positioning the table
+    snookerTable.tableOffsetY,          // Y offset for positioning the table
+    snookerTable.baulkLineX,            // Position of the baulk line on the table
+    snookerTable.dRadius                // Radius of the "D" zone
+  );
+
+  // Identify the cue ball from the array of balls
+  cueBall = balls.find(ball => ball.body.label === "cueBall").body;
+
+  // Build an array of labels for all colored balls (excluding red and cue balls)
+  coloredBalls = balls
+    .filter(ball => ball.body.label !== "redBall" && ball.body.label !== "cueBall")
+    .map(ball => ball.body.label);
+
+  // Create a new cue object linked to the cue ball
+  cue = new Cue(cueBall);
+}
+
+/* 
+- Handles the cue ball shot when the table is clicked.
+- Prevents immediate shot if we are still placing the cue ball.
+*/
+function shootCueBallByAngle() {
+  if (ignoreNextClick) {
+    ignoreNextClick = false;
+    return;
+  }
+
+  // Table boundaries for validating mouse clicks
+  const tableLeft = snookerTable.tableOffsetX;
+  const tableRight = snookerTable.tableOffsetX + snookerTable.tableWidth;
+  const tableTop = snookerTable.tableOffsetY;
+  const tableBottom = snookerTable.tableOffsetY + snookerTable.tableHeight;
+
+  // Ensure click is within the table and that the cue ball is at rest
+  if (
+    mouseX >= tableLeft && mouseX <= tableRight &&
+    mouseY >= tableTop && mouseY <= tableBottom &&
+    velocityMagnitude <= 0.009
+  ) {
+    const forceMagnitude = speedSlider.value() / 1000;
+
+    // Calculate the direction from the cue ball to mouse
+    const forceDirection = {
+      x: mouseX - cueBall.position.x,
+      y: mouseY - cueBall.position.y,
+    };
+
+    // Normalize the direction vector
+    const directionMagnitude = Math.sqrt(
+      forceDirection.x ** 2 + forceDirection.y ** 2
+    );
+    const normalizedDirection = {
+      x: forceDirection.x / directionMagnitude,
+      y: forceDirection.y / directionMagnitude,
+    };
+
+    // Apply force to the cue ball
+    Matter.Body.applyForce(cueBall, cueBall.position, {
+      x: normalizedDirection.x * forceMagnitude,
+      y: normalizedDirection.y * forceMagnitude,
+    });
+
+    isCueShotTaken = true;
+
+    // Switch player turn after a short delay
+    setTimeout(() => {
+      resetTimer();
+      currentPlayer = (currentPlayer === 1) ? 2 : 1;
+    }, 1500);
+  }
 }
