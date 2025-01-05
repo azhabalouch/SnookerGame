@@ -13,8 +13,8 @@ class Ball {
    */
   constructor(x, y, diameter, color, label) {
     this.body = Bodies.circle(x, y, diameter / 2, {
-      restitution: 0.9,
-      friction: 0.1,
+      restitution: 1.1,
+      friction: 0.01,
       label: label,
     });
     this.color = color;

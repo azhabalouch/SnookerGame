@@ -34,40 +34,6 @@ function displayGameScreen() {
     againTurn = false;
   }
 
-  // Highlight the current player's score in yellow
-  push();
-    fill("Yellow");
-    textAlign(LEFT);
-    textSize(24);
-    textStyle(BOLD);
-    text(
-      `Player ${
-        currentPlayer === 1
-          ? "1 Score: " + player1Score
-          : "2 Score: " + player2Score
-      }`,
-      dpHeight,
-      dpHeight
-    );
-  pop();
-
-  // Show the opponent’s score in white
-  push();
-    fill("white");
-    textAlign(LEFT);
-    textSize(18);
-    textStyle(BOLD);
-    text(
-      `Player ${
-        currentPlayer === 1
-          ? "2 Score: " + player2Score
-          : "1 Score: " + player1Score
-      }`,
-      dpHeight,
-      dpHeight * 1.5
-    );
-  pop();
-
   // Indicate whose turn it is
   push();
     fill("lightgreen");
@@ -80,17 +46,6 @@ function displayGameScreen() {
       dpHeight
     );
   pop();
-
-  // Show foul message if active
-  if (foulMessageVisible) {
-    push();
-      fill("red");
-      textAlign(CENTER, CENTER);
-      textSize(24);
-      textStyle(BOLD);
-      text("Foul! Next player's turn.", width / 2, height / 2);
-    pop();
-  }
 
   // Handle cue ball in hand on first turn
   if (ballInHand) {
@@ -128,6 +83,66 @@ function displayGameScreen() {
     pop();
     return; // Skip further UI until cue ball is confirmed
   }
+
+  // Highlight the current player's score in yellow
+  push();
+    fill("Yellow");
+    textAlign(LEFT);
+    textSize(24);
+    textStyle(BOLD);
+    text(
+      `Player ${
+        currentPlayer === 1
+          ? "1 Score: " + player1Score
+          : "2 Score: " + player2Score
+      }`,
+      dpHeight,
+      dpHeight
+    );
+  pop();
+
+  // Show the opponent’s score in white
+  push();
+    fill("white");
+    textAlign(LEFT);
+    textSize(18);
+    textStyle(BOLD);
+    text(
+      `Player ${
+        currentPlayer === 1
+          ? "2 Score: " + player2Score
+          : "1 Score: " + player1Score
+      }`,
+      dpHeight,
+      dpHeight * 1.5
+    );
+  pop();
+
+  // Show foul message if active
+  if (foulMessageVisible) {
+    push();
+      fill("red");
+      textAlign(CENTER, CENTER);
+      textSize(24);
+      textStyle(BOLD);
+      text("Foul! Next player's turn.", width / 2, height / 2);
+    pop();
+  }
+
+  // Hint to switch mode.
+  push();
+    fill("Yellow");
+    textAlign(CENTER);
+    textSize(16);
+    textStyle(BOLD);
+    text(
+      `1, 2, 3 to change Game Modes,\n Press Enter to Switch Mode\n to: ${
+        isMouseControlled ? "Keyboard" : "Mouse"
+      }`,
+      canvas.width - snookerTable.tableOffsetX,
+      25
+    );
+  pop();
 
   // Check cue ball velocity and render the cue stick if nearly stationary
   velocityMagnitude = Math.sqrt(
