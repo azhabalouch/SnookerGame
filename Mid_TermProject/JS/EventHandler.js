@@ -174,7 +174,7 @@ function mouseClicked() {
     ) {
       shootCueBallByAngle();
     }
-  } else {
+  } else if (!ballInHand && velocityMagnitude <= vMlimit){
     if (
       mouseX >= tableLeft && mouseX <= tableRight &&
       mouseY >= tableTop && mouseY <= tableBottom

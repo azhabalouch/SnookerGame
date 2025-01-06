@@ -165,8 +165,8 @@ function displayGameScreen() {
     drawTimer();
 
     // Draw Cue
-    drawCueWhenVelocity(0.09);
+    drawCueWhenVelocity(0.009);
   } else {
-    drawCueWhenVelocity(0.9);
+    drawCueWhenVelocity(vMlimit);
   }
 }
