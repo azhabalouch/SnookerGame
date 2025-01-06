@@ -1,0 +1,1690 @@
+/*****************************************************************************
+ * Snooker Game - Main Sketch | Commentry
+ *
+Design Choices:
+The snooker game application faithfully replicates traditional snooker
+mechanics and aesthetics, meeting coursework requirements. Utilizing
+p5.js for graphics and matter.js for physics ensures realistic
+motion, collision, and interactions. Careful scaling of table dimensions,
+ball sizes, and pocket diameters using specified formulas guarantees an
+accurate snooker table representation.
+
+User Interaction:
+The cue ball interaction offers a dynamic and intuitive experience through
+both mouse and keyboard controls. The mouse controls allow players to set
+the cue's direction and strength, mimicking real-life aiming and striking
+for precise power and accuracy. Keyboard controls complement this by
+providing alternative input methods, enhancing accessibility.
+
+Technical Implementation:
+1. Ball Collisions: Realistic restitution and friction settings ensure
+   natural bouncing and rolling behaviors.
+2. Cue Ball Impact: Accurate force and direction transfer models the
+   cue strike, with speed limits to maintain realistic motion.
+3. Cushion Behavior: Table cushions are tuned for appropriate
+   restitution, facilitating realistic ball bounces.
+
+Graphics:
+1. Table Design: The table features correct proportions, including the
+   "D" zone and baulk line, enhancing authenticity.
+2. Ball Rendering: Balls are rendered with gradients and shadows, adding
+   visual depth and realism.
+
+Game Modes:
+Implemented three required modes and two additional ones:
+1. Standard Starting Positions
+2. Random Red Ball Placement
+3. Random Placement of Reds and Colored Balls
+4. Black Ball as Intruder
+5. All Colored Balls as Intruder
+
+Game Logic:
+1. Pocket Detection: Red balls are removed when potted, while colored
+   balls are re-spotted to their original positions.
+2. Error Handling: Implements official snooker fouls, including cue ball
+   potting, potting a colored ball before any red, and hitting a red after
+   potting one.
+3. Cue Ball Reset: If the cue ball is potted, it returns to the "D" zone
+   for player repositioning.
+
+Unique Extension:
+Introduced AI Mimic to enhance gameplay with strategic depth:
+1. Black Ball Attack Mode: AI-controlled black ball moves toward the
+   cue ball, creating challenging scenarios.
+2. All Color Balls Attack Mode: All colored balls (except cue and reds)
+   converge toward the cue ball, increasing difficulty.
+
+Challenges and Solutions:
+- Collision Handling: Addressed overlapping and unnatural responses
+  using matter.js collision events, adjusted restitution and friction, and
+  added proximity checks during initialization.
+- Foul Detection: Implemented snooker-specific foul rules with a
+  turn-based logic system, error prompts, and cue ball resets.
+- Cushion Physics: Improved unrealistic bounces by fine-tuning restitution
+  and damping in matter.js.
+- AI Mimic Complexity: Managed ball movements with directional force
+  vectors and limited force magnitudes for smooth gameplay.
+- Randomized Ball Placement: Refined using spatial algorithms and collision
+  checks to ensure proper spacing and adherence to table constraints.
+
+Future Improvements:
+1. Multiplayer Support: Enable competitive play for enhanced user
+   engagement.
+2. Advanced AI: Develop more sophisticated AI for single-player mode to
+   provide varied challenges.
+3. UI Enhancements: Improve the user interface with scoring displays and
+   game statistics for a better user experience.
+
+*****************************************************************************/
+
+// Import the required Matter.js modules
+const {
+  Engine,
+  Render,
+  Runner,
+  World,
+  Bodies,
+  Body,
+  Events,
+  Mouse,
+  MouseConstraint
+} = Matter;
+
+// Global variables for the game
+let canvas;                             // p5.js canvas
+let engine;                             // Matter.js engine instance
+let world;                              // Matter.js world
+let snookerTable;                       // SnookerTable instance
+let balls = [];                         // Array of Ball instances
+let coloredBalls = [];                  // Array containing labels of colored balls
+let coloredBallsPosition = [];          // Position references for each colored ball
+let coloredBallData = [];               // Color/label references for each colored ball
+let cue;                                // Cue instance
+let cueBall;                            // Reference to the cue ball (white ball)
+let velocityMagnitude;                  // Magnitude of velocity for the cue ball
+let dpHeight = 50;                      // Display panel height
+let player1Score = 0;                   // Score for Player 1
+let player2Score = 0;                   // Score for Player 2
+let currentPlayer = 1;                  // Tracks the current player (1 or 2)
+let timer = 60;                         // Countdown timer (seconds)
+let timerInterval;                      // Interval ID for the timer
+let foulMessageVisible = false;         // Foul message visibility flag
+let foulMessageTimeout;                 // Timeout for hiding the foul message
+let IncorrectMessageVisible = false;    // Incorrect move message visibility flag
+let IncorrectMessageTimeout;            // Timeout for hiding the incorrect message
+let gameStarted = false;                // Flag to indicate game start
+let buttonStart;                        // Start button
+let Btn_confirmCueballPos;              // Button to confirm cue ball position
+let ignoreNextClick = false;            // Flag to ignore the first click after game start
+let ballInHand = true;                  // Indicates if cue ball is in hand (placed freely)
+let isCueShotTaken;                     // Flag to check if a valid cue shot was taken
+let mouseConstraint;                    // Mouse constraint for positioning the cue ball
+let againTurn = false;                  // Flag indicating if the same player continues
+let redBallPotted = false;              // Flag indicating a red ball was potted
+let onlyColoredBalls = false;           // Flag indicating only colored balls to be potted
+let redBallsRemaining = 15;             // Counter for remaining red balls
+let cueAngle = 0;                       // The cue's current angle (in radians)
+let angleStep = Math.PI / 90;           // How much to rotate on each up/down press
+let isMouseControlled = true;           // Default control mode
+let disable = false;                    // For disabling items not required in the mode
+let blackBallAttackEventActive = false; // Is black ball attacking
+let allColorBallsAttackEventActive = false; // Are color balls attacking
+let vMlimit = 0.9;                      // Velocity Magnitude limit flag
+
+/**
+ * setup()
+ * Initializes the Matter.js engine, creates the snooker table and balls,
+ * sets up UI elements (buttons, sliders), and attaches collision handlers.
+ */
+function setup() {
+  frameRate(60);
+  canvas = createCanvas(1000, 600);
+
+  // Creates the physics engine and world
+  engine = Engine.create();
+  world = engine.world;
+  engine.gravity.y = 0; // Disable gravity on the y-axis (top-view game)
+
+  // Initializes the snooker table
+  snookerTable = new SnookerTable({
+    tableWidth: 800,
+    tableOffsetX: 150,
+    tableOffsetY: 150,
+    colors: {
+      tableMat: "#009A17",
+      innerBorder: "#004C54",
+      pocket: "black",
+      line: "white",
+      outerBorder: "#964e02",
+    },
+  });
+
+  // Initialize the balls for the given mode, adjusting their positions and settings
+  initializeGame(1);
+
+  // Sets up UI elements and interactions
+  gameStartBtn();     // "Start Game" button
+  slider();           // Slider for cue ball speed
+  mouseInteraction(); // Enables mouse interactions for placing the cue ball
+  cueBallConfirmPos();// Button to confirm cue ball position in the "D"
+
+  // Collision events (pocket collision and foul detection)
+  Events.on(engine, 'collisionStart', handlePocketCollision);
+  Events.on(engine, 'collisionStart', handleFoul);
+
+  // Runs the Matter.js engine
+  Runner.run(engine);
+}
+
+/**
+ * draw()
+ * Called continuously by p5.js to render the game.
+ * Renders the start screen if the game isn't started, otherwise the main interface.
+ */
+function draw() {
+  background("#154734");
+
+  if (!gameStarted) {
+    // Displays the start screen if the game hasn't started
+    displayStartScreen();
+  } else {
+    // Displays the main game interface otherwise
+    displayGameScreen();
+  }
+}
+
+/**
+ * Displays the start screen with a welcome message and a prompt to begin the game.
+ */
+function displayStartScreen() {
+  push(); // Save current style/transform
+    textAlign(CENTER, CENTER);
+    fill("white");
+    textSize(32);
+    textStyle(BOLD);
+
+    // Main title
+    text("Welcome to Snooker!", width / 2, height / 3);
+
+    // Prompt
+    textSize(18);
+    text("Click 'Start Game' to begin.", width / 2, height / 2.5);
+  pop(); // Restore style/transform
+}
+
+/**
+ * Shows the main game screen, including the table, balls, scoring, turn details,
+ * foul messages, cue stick (when ball is still), and the game timer.
+ */
+function displayGameScreen() {
+  // Draw the snooker table
+  snookerTable.draw();
+
+  // Draw all balls
+  balls.forEach((ball) => ball.draw());
+
+  // Handle "againTurn" switch
+  if (againTurn){
+    currentPlayer = (currentPlayer === 1) ? 2 : 1;
+    againTurn = false;
+  }
+
+  if(!disable){
+    // Indicate whose turn it is
+    push();
+      fill("lightgreen");
+      textAlign(CENTER);
+      textSize(24);
+      textStyle(BOLD);
+      text(
+        `Player ${currentPlayer === 1 ? "One" : "Two"}'s Turn`,
+        width / 2,
+        dpHeight
+      );
+    pop();
+  }
+
+  // Handle cue ball in hand on first turn
+  if (ballInHand) {
+    // Temporarily disable collisions for all non-cue balls
+    for (let i = 0; i < balls.length; i++) {
+      if (balls[i].body.label !== 'cueBall') {
+        balls[i].body.collisionFilter.mask = 0;
+      }
+    }
+
+    // Show confirm button for cue ball position
+    Btn_confirmCueballPos.show();
+
+    // Display incorrect positioning warning if needed
+    if (IncorrectMessageVisible) {
+      push();
+        fill("red");
+        textAlign(CENTER, CENTER);
+        textSize(24);
+        textStyle(BOLD);
+        text("Incorrect Position for cueBall!", width / 2, height / 3);
+      pop();
+    }
+
+    // Instruction to place the cue ball within the "D"
+    push();
+      fill("White");
+      textAlign(CENTER, CENTER);
+      textSize(24);
+      text(
+        "White ball in hand, move it to desired position on 'D'",
+        width / 2,
+        dpHeight * 1.4
+      );
+    pop();
+    return; // Skip further UI until cue ball is confirmed
+  }
+
+  // Highlight the current player's score in yellow
+  if (!disable) {
+    push();
+      fill("Yellow");
+      textAlign(LEFT);
+      textSize(24);
+      textStyle(BOLD);
+      text(
+        `Player ${
+          currentPlayer === 1
+            ? "1 Score: " + player1Score
+            : "2 Score: " + player2Score
+        }`,
+        dpHeight,
+        dpHeight
+      );
+    pop();
+
+    // Show the opponent’s score in white
+    push();
+      fill("white");
+      textAlign(LEFT);
+      textSize(18);
+      textStyle(BOLD);
+      text(
+        `Player ${
+          currentPlayer === 1
+            ? "2 Score: " + player2Score
+            : "1 Score: " + player1Score
+        }`,
+        dpHeight,
+        dpHeight * 1.5
+      );
+    pop();
+  } else {
+    push();
+      fill("Red");
+      textAlign(LEFT);
+      textSize(24);
+      textStyle(BOLD);
+      text("INTRUDER DETECTED! You are being targeted",
+        30,
+        dpHeight
+      );
+    pop();
+  }
+
+  // Show foul message if active
+  if (foulMessageVisible) {
+    push();
+      fill("red");
+      textAlign(CENTER, CENTER);
+      textSize(24);
+      textStyle(BOLD);
+      text("Foul! Next player's turn.", width / 2, height / 2);
+    pop();
+  }
+
+  // Hint to switch mode.
+  push();
+    fill("Yellow");
+    textAlign(CENTER);
+    textSize(16);
+    textStyle(BOLD);
+    text(
+      `1, 2, 3, 4, 5 to change Game Modes\n Press Enter to Switch controls\n Current Control: ${
+        isMouseControlled ? "Mouse" : "Keyboard"
+      }`,
+      canvas.width - snookerTable.tableOffsetX,
+      dpHeight
+    );
+  pop();
+
+  
+  if(!disable){
+    // Draw the game timer
+    drawTimer();
+
+    // Draw Cue
+    drawCueWhenVelocity(0.009);
+  } else {
+    drawCueWhenVelocity(vMlimit);
+  }
+}
+
+/**
+ * Class representing a Snooker Table.
+ */
+class SnookerTable {
+  /**
+   * Initializes the snooker table with configuration details.
+   * @param {Object} config - Configuration object containing table properties.
+   */
+  constructor(config) {
+    this.tableWidth = config.tableWidth;                                    // Table width
+    this.tableHeight = this.tableWidth / 2;                                 // Table height (half of width for standard proportions)
+    this.tableOffsetX = config.tableOffsetX;                                // Horizontal offset
+    this.tableOffsetY = config.tableOffsetY;                                // Vertical offset
+    this.pocketDiameter = (this.tableWidth / 36) * 1.5;                     // Pocket diameter based on table size
+    this.baulkLineX = this.tableOffsetX + this.tableWidth / 4;              // X-coordinate for the baulk line
+    this.dRadius = this.tableWidth * 0.1;                                   // Radius for the "D" zone
+    this.colors = config.colors;                                            // Table colors
+    this.edgeCut = 10;                                                      // Edge cut for border corners
+    this.borderRectWidth = this.tableWidth / 2 - 2 * this.pocketDiameter;   // Width of border rectangles
+    this.borderRectHeight = this.tableHeight - this.pocketDiameter * 2;     // Height of border rectangles
+    this.tableBorderSize = 10;                                              // Border size
+    this.borderAdjustment = 10;                                             // Adjustment for border dimensions
+    this.pocketRadius = this.pocketDiameter / 2;                            // Radius of each pocket
+    this.pushBackPocket = 10;                                               // Offset for pocket placement
+    this.borders = [];                                                      // Border positions
+    this.matterBorders = [];                                                // Matter.js border bodies
+    this.pockets = [];                                                      // Pocket sensors
+    this.pocketPositions = [];                                              // Pocket positions
+
+    // Initialize the table's borders and pockets
+    this.initializeInnerBorders();
+    this.initializePockets();
+  }
+
+  /**
+   * Initializes the inner borders of the table as Matter.js static bodies.
+   */
+  initializeInnerBorders() {
+    // Define the border positions and dimensions
+    this.borders = [
+      { x: this.tableOffsetX + this.pocketDiameter, y: this.tableOffsetY, width: this.borderRectWidth + this.borderAdjustment, height: this.tableBorderSize },
+      { x: this.tableOffsetX + this.pocketDiameter * 3 + this.borderRectWidth - this.borderAdjustment, y: this.tableOffsetY, width: this.borderRectWidth + this.borderAdjustment, height: this.tableBorderSize },
+      { x: this.tableOffsetX + this.pocketDiameter, y: this.tableOffsetY + this.tableHeight - this.tableBorderSize, width: this.borderRectWidth + this.borderAdjustment, height: this.tableBorderSize },
+      { x: this.tableOffsetX + this.pocketDiameter * 3 + this.borderRectWidth - this.borderAdjustment, y: this.tableOffsetY + this.tableHeight - this.tableBorderSize, width: this.borderRectWidth + this.borderAdjustment, height: this.tableBorderSize },
+      { x: this.tableOffsetX, y: this.tableOffsetY + this.pocketDiameter, width: this.tableBorderSize, height: this.borderRectHeight },
+      { x: this.tableOffsetX + this.tableWidth - this.tableBorderSize, y: this.tableOffsetY + this.pocketDiameter, width: this.tableBorderSize, height: this.borderRectHeight },
+    ];
+
+    // Create static Matter.js bodies for each border
+    this.matterBorders = this.borders.map((b) =>
+      Matter.Bodies.rectangle(
+        b.x + b.width / 2,
+        b.y + b.height / 2,
+        b.width,
+        b.height,
+        { isStatic: true, label: "cushion" }
+      )
+    );
+
+    // Add the borders to the Matter.js world
+    Matter.World.add(world, this.matterBorders);
+  }
+
+  /**
+   * Initializes the pocket sensors for the table using Matter.js.
+   */
+  initializePockets() {
+    // Define the positions of the pockets
+    this.pocketPositions = [
+      { x: this.tableOffsetX + this.pocketRadius - this.pushBackPocket, y: this.tableOffsetY + this.pocketRadius - this.pushBackPocket },
+      { x: this.tableOffsetX + this.tableWidth - this.pocketRadius + this.pushBackPocket, y: this.tableOffsetY + this.pocketRadius - this.pushBackPocket },
+      { x: this.tableOffsetX + this.pocketRadius - this.pushBackPocket, y: this.tableOffsetY + this.tableHeight - this.pocketRadius + this.pushBackPocket },
+      { x: this.tableOffsetX + this.tableWidth - this.pocketRadius + this.pushBackPocket, y: this.tableOffsetY + this.tableHeight - this.pocketRadius + this.pushBackPocket },
+      { x: this.tableOffsetX + this.tableWidth / 2, y: this.tableOffsetY + this.pocketRadius - this.pushBackPocket * 2 },
+      { x: this.tableOffsetX + this.tableWidth / 2, y: this.tableOffsetY + this.tableHeight - this.pocketRadius + this.pushBackPocket * 2 },
+    ];
+
+    // Define the radius for pocket sensors
+    const sensorRadius = 10;
+
+    // Create static sensor bodies for each pocket
+    this.pockets = this.pocketPositions.map((p) =>
+      Matter.Bodies.circle(p.x, p.y, sensorRadius, {
+        isStatic: true,
+        isSensor: true,
+        label: "pocket"
+      })
+    );
+
+    // Add the pockets to the Matter.js world
+    Matter.World.add(world, this.pockets);
+  }
+
+  /**
+   * Draws the green mat of the snooker table.
+   */
+  drawMat() {
+    push();
+      fill(this.colors.tableMat);
+      noStroke();
+      rect(this.tableOffsetX, this.tableOffsetY, this.tableWidth, this.tableHeight);
+    pop();
+  }
+
+  /**
+   * Draws the "D" zone and baulk line.
+   */
+  drawD() {
+    push();
+      noFill();
+      stroke(this.colors.line);
+      strokeWeight(2);
+
+      // Draw the baulk line
+      line(
+        this.baulkLineX,
+        this.tableOffsetY,
+        this.baulkLineX,
+        this.tableOffsetY + this.tableHeight
+      );
+
+      // Draw the semi-circle for the "D"
+      arc(
+        this.baulkLineX,
+        this.tableOffsetY + this.tableHeight / 2,
+        this.dRadius * 2,
+        this.dRadius * 2,
+        HALF_PI,
+        -HALF_PI
+      );
+    pop();
+  }
+
+  /**
+   * Draws the inner borders of the table, including shadow effects and corner details.
+   */
+  drawInnerBorders() {
+    push();
+      fill(this.colors.innerBorder);
+      noStroke();
+
+      // Apply shadow effects for depth
+      drawingContext.shadowOffsetX = 5;
+      drawingContext.shadowOffsetY = 5;
+      drawingContext.shadowBlur = 20;
+      drawingContext.shadowColor = "rgba(0, 0, 0, 0.2)";
+
+      // Draw each border
+      this.borders.forEach((b) => rect(b.x, b.y, b.width, b.height));
+
+      // Left corner - top left bar
+      triangle(
+        this.pocketDiameter + this.tableOffsetX,
+        this.tableOffsetY,
+        this.pocketDiameter + this.tableOffsetX,
+        this.tableOffsetY + this.tableBorderSize,
+        this.pocketDiameter + this.tableOffsetX - this.edgeCut,
+        this.tableOffsetY
+      );
+
+      // Right corner - top left bar
+      triangle(
+        this.pocketDiameter + this.tableOffsetX + this.borderRectWidth + this.borderAdjustment,
+        this.tableOffsetY,
+        this.pocketDiameter + this.tableOffsetX + this.borderRectWidth + this.borderAdjustment,
+        this.tableOffsetY + this.tableBorderSize,
+        this.pocketDiameter + this.tableOffsetX + this.borderRectWidth + this.edgeCut / 2 + this.borderAdjustment,
+        this.tableOffsetY
+      );
+
+      // Left corner - top right bar
+      triangle(
+        3 * this.pocketDiameter + this.tableOffsetX + this.borderRectWidth - this.borderAdjustment,
+        this.tableOffsetY,
+        3 * this.pocketDiameter + this.tableOffsetX + this.borderRectWidth - this.borderAdjustment,
+        this.tableOffsetY + this.tableBorderSize,
+        3 * this.pocketDiameter + this.tableOffsetX + this.borderRectWidth - this.edgeCut / 2 - this.borderAdjustment,
+        this.tableOffsetY
+      );
+
+      // Right corner - top right bar
+      triangle(
+        3 * this.pocketDiameter + this.tableOffsetX + this.borderRectWidth * 2,
+        this.tableOffsetY,
+        3 * this.pocketDiameter + this.tableOffsetX + this.borderRectWidth * 2,
+        this.tableOffsetY + this.tableBorderSize,
+        3 * this.pocketDiameter + this.tableOffsetX + this.borderRectWidth * 2 + this.edgeCut,
+        this.tableOffsetY
+      );
+
+      // Bottom left bar - left corner
+      triangle(
+        this.pocketDiameter + this.tableOffsetX,
+        this.tableOffsetY + this.tableHeight,
+        this.pocketDiameter + this.tableOffsetX,
+        this.tableOffsetY + this.tableHeight - this.tableBorderSize,
+        this.pocketDiameter + this.tableOffsetX - this.edgeCut,
+        this.tableOffsetY + this.tableHeight
+      );
+
+      // Bottom left bar - right corner
+      triangle(
+        this.pocketDiameter + this.tableOffsetX + this.borderRectWidth + this.borderAdjustment,
+        this.tableOffsetY + this.tableHeight,
+        this.pocketDiameter + this.tableOffsetX + this.borderRectWidth + this.borderAdjustment,
+        this.tableOffsetY + this.tableHeight - this.tableBorderSize,
+        this.pocketDiameter + this.tableOffsetX + this.borderRectWidth + this.edgeCut / 2 + this.borderAdjustment,
+        this.tableOffsetY + this.tableHeight
+      );
+
+      // Bottom Right Bar - left corner
+      triangle(
+        3 * this.pocketDiameter + this.tableOffsetX + this.borderRectWidth - this.borderAdjustment,
+        this.tableOffsetY + this.tableHeight,
+        3 * this.pocketDiameter + this.tableOffsetX + this.borderRectWidth - this.borderAdjustment,
+        this.tableOffsetY + this.tableHeight - this.tableBorderSize,
+        3 * this.pocketDiameter + this.tableOffsetX + this.borderRectWidth - this.edgeCut / 2 - this.borderAdjustment,
+        this.tableOffsetY + this.tableHeight
+      );
+
+      // Bottom Right Bar - right corner
+      triangle(
+        3 * this.pocketDiameter + this.tableOffsetX + this.borderRectWidth * 2,
+        this.tableOffsetY + this.tableHeight,
+        3 * this.pocketDiameter + this.tableOffsetX + this.borderRectWidth * 2,
+        this.tableOffsetY + this.tableHeight - this.tableBorderSize,
+        3 * this.pocketDiameter + this.tableOffsetX + this.borderRectWidth * 2 + this.edgeCut,
+        this.tableOffsetY + this.tableHeight
+      );
+
+      // Left Vertical Bar - top edge
+      triangle(
+        this.tableOffsetX,
+        this.tableOffsetY + this.pocketDiameter,
+        this.tableOffsetX + this.tableBorderSize,
+        this.tableOffsetY + this.pocketDiameter,
+        this.tableOffsetX,
+        this.tableOffsetY + this.pocketDiameter - this.edgeCut
+      );
+
+      // Left Vertical Bar - bottom edge
+      triangle(
+        this.tableOffsetX,
+        this.tableOffsetY + this.pocketDiameter + this.borderRectHeight,
+        this.tableOffsetX + this.tableBorderSize,
+        this.tableOffsetY + this.pocketDiameter + this.borderRectHeight,
+        this.tableOffsetX,
+        this.tableOffsetY + this.pocketDiameter + this.borderRectHeight + this.edgeCut
+      );
+
+      // Right Vertical Bar - top edge
+      triangle(
+        this.tableOffsetX + this.tableWidth,
+        this.tableOffsetY + this.pocketDiameter,
+        this.tableOffsetX + this.tableWidth - this.tableBorderSize,
+        this.tableOffsetY + this.pocketDiameter,
+        this.tableOffsetX + this.tableWidth,
+        this.tableOffsetY + this.pocketDiameter - this.edgeCut
+      );
+
+      // Right Vertical Bar - bottom edge
+      triangle(
+        this.tableOffsetX + this.tableWidth,
+        this.tableOffsetY + this.pocketDiameter + this.borderRectHeight,
+        this.tableOffsetX + this.tableWidth - this.tableBorderSize,
+        this.tableOffsetY + this.pocketDiameter + this.borderRectHeight,
+        this.tableOffsetX + this.tableWidth,
+        this.tableOffsetY + this.pocketDiameter + this.borderRectHeight + this.edgeCut
+      );
+    pop();
+  }
+
+  /**
+   * Draws the outer wooden border of the table.
+   */
+  drawOuterBorder() {
+    push();
+      stroke(this.colors.outerBorder);
+      strokeWeight(30);
+      noFill();
+      rect(
+        this.tableOffsetX - 15,
+        this.tableOffsetY - 15,
+        this.tableWidth + 30,
+        this.tableHeight + 30,
+        30
+      );
+    pop();
+  }
+
+  /**
+   * Draws the pockets on the table visually.
+   */
+  drawPockets() {
+    push();
+      fill(this.colors.pocket);
+      noStroke();
+      this.pocketPositions.forEach((p) => circle(p.x, p.y, this.pocketDiameter));
+    pop();
+  }
+
+  /**
+   * Master draw function to render all components of the table.
+   */
+  draw() {
+    this.drawMat();
+    this.drawD();
+    this.drawInnerBorders();
+    this.drawOuterBorder();
+    this.drawPockets();
+  }
+}
+
+/**
+ * Class representing the cue stick, which allows aiming and force application on the cue ball.
+ */
+class Cue {
+  /**
+   * Creates a Cue object for the specified cue ball.
+   * @param {Object} cueBall - The Matter.js body of the cue ball.
+   * @param {number} [cueLength=200] - The length of the cue stick.
+   */
+  constructor(cueBall, cueLength = 200) {
+    this.cueBall = cueBall;
+    this.cueLength = cueLength;
+    this.createCue();
+  }
+
+  /**
+   * Builds the cue stick as a static Matter.js rectangle and attaches it to the cue ball via a constraint.
+   */
+  createCue() {
+    // Main cue stick body
+    this.cue = Matter.Bodies.rectangle(
+      this.cueBall.position.x - 15,
+      this.cueBall.position.y,
+      -this.cueLength,
+      5,
+      {
+        label: "cue",
+        isStatic: true,
+      }
+    );
+
+    // Disable collisions with other objects
+    this.cue.collisionFilter = {
+      category: -1,
+      mask: 0,
+    };
+
+    // Constraint that attaches the cue to the cue ball
+    this.cueConstraint = Matter.Constraint.create({
+      pointA: { x: this.cueBall.position.x, y: this.cueBall.position.y },
+      bodyB: this.cue,
+    });
+
+    World.add(world, [this.cue, this.cueConstraint]);
+  }
+
+  /**
+   * Draws the cue stick and its aiming projection toward the mouse pointer.
+   * @param {Object} mousePos - Current mouse coordinates (x, y).
+   */
+  drawCue(mousePos) {
+    if (isMouseControlled) {
+      // Mouse-controlled: calculate angle based on mouse position
+      cueAngle = Math.atan2(
+        mousePos.y - this.cueBall.position.y,
+        mousePos.x - this.cueBall.position.x
+      );
+    } else {
+      // Arrow key-controlled: adjust angle based on key hold
+      if (keyIsDown(UP_ARROW)) {
+        cueAngle -= angleStep; // Rotate counterclockwise
+      }
+      if (keyIsDown(DOWN_ARROW)) {
+        cueAngle += angleStep; // Rotate clockwise
+      }
+    }
+
+    push();
+      translate(this.cueBall.position.x, this.cueBall.position.y);
+      rotate(cueAngle);
+      noStroke();
+
+      // Cue stick
+      fill("#b59b7c");
+      rect(-15, -2.5, -150, 5);
+      fill("#692704");
+      rect(-165, -2.5, -50, 5);
+
+      // Aiming projection
+      push();
+        fill(255, 255, 255, 127);
+        const arrowWidth = 20;
+        const arrowHeight = 10;
+        const startX = 15;
+        const startY = 0;
+        const projectileLength = 500;
+
+        for (let i = startX; i < startX + projectileLength; i += arrowWidth) {
+          beginShape();
+          vertex(i, startY - arrowHeight);
+          vertex(i + arrowWidth / 2, startY);
+          vertex(i, startY + arrowHeight);
+          vertex(i + arrowWidth / 2 - 2, startY);
+          endShape(CLOSE);
+        }
+      pop();
+    pop();
+  }
+
+  /**
+   * Updates the cue's constraint to match the current angle/distance from the cue ball.
+   */
+  update() {
+    const constrainedX =
+      this.cueBall.position.x + Math.cos(this.angle) * this.cueLength;
+    const constrainedY =
+      this.cueBall.position.y + Math.sin(this.angle) * this.cueLength;
+
+    this.cueConstraint.pointA = { x: constrainedX, y: constrainedY };
+  }
+}
+
+/*****************************************************************************
+ * Snooker Game - Ball Class
+ *****************************************************************************/
+
+class Ball {
+  /**
+   * Constructs a new Ball with position, diameter, color, and label.
+   * @param {number} x - X coordinate
+   * @param {number} y - Y coordinate
+   * @param {number} diameter - Ball diameter
+   * @param {Object} color - Light/medium/dark color definitions
+   * @param {string} label - Unique label (e.g., "redBall")
+   */
+  constructor(x, y, diameter, color, label) {
+    this.body = Bodies.circle(x, y, diameter / 2, {
+      restitution: 1.1,
+      friction: 0.01,
+      label: label,
+    });
+    this.color = color;
+    World.add(world, this.body);
+  }
+
+  /**
+   * Renders the ball with a radial gradient and shadow.
+   */
+  draw() {
+    const { position: pos, angle } = this.body;
+    push();
+    translate(pos.x, pos.y);
+    rotate(angle);
+
+    drawingContext.shadowOffsetX = 3;
+    drawingContext.shadowOffsetY = 5;
+    drawingContext.shadowBlur = 20;
+    drawingContext.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    noStroke();
+
+    const gradient = drawingContext.createRadialGradient(
+      0, 0, this.body.circleRadius * 0.01,
+      0, 0, this.body.circleRadius
+    );
+    gradient.addColorStop(0, this.color.light);
+    gradient.addColorStop(0.6, this.color.medium);
+    gradient.addColorStop(1, this.color.dark);
+
+    drawingContext.fillStyle = gradient;
+    circle(0, 0, this.body.circleRadius * 2);
+    pop();
+  }
+
+  /**
+   * Places snooker balls in one of three modes:
+   * 1) Standard layout (red + colored + cue),
+   * 2) Random reds, standard colors/cue,
+   * 3) Random reds and colors, standard cue.
+   */
+  static initializeBalls(
+    mode,
+    tableWidth,
+    tableHeight,
+    offsetX,
+    offsetY,
+    baulkLineX,
+    dRadius
+  ) {
+    const ballDiameter = tableWidth / 36;
+    const centerX = tableWidth / 2 + offsetX;
+    const centerY = tableHeight / 2 + offsetY;
+
+    coloredBallsPosition = [
+      { x: baulkLineX,             y: centerY + dRadius,    d: ballDiameter }, // Yellow
+      { x: baulkLineX,             y: centerY - dRadius,    d: ballDiameter }, // Green
+      { x: baulkLineX,             y: centerY,              d: ballDiameter }, // Brown
+      { x: centerX,                y: centerY,              d: ballDiameter }, // Blue
+      { x: centerX * 1.25,         y: centerY,              d: ballDiameter }, // Pink
+      { x: centerX * 1.6,          y: centerY,              d: ballDiameter }, // Black
+      { x: baulkLineX - dRadius/2, y: centerY,              d: ballDiameter }, // Cue
+    ];
+
+    coloredBallData = [
+      {
+        label: 'yellowBall',
+        color: {
+          light: 'rgb(255, 255, 0)',
+          medium: 'rgb(220, 220, 0)',
+          dark: 'rgb(180, 180, 0)',
+        },
+      },
+      {
+        label: 'greenBall',
+        color: {
+          light: 'rgb(0, 128, 0)',
+          medium: 'rgb(0, 100, 0)',
+          dark: 'rgb(0, 70, 0)',
+        },
+      },
+      {
+        label: 'brownBall',
+        color: {
+          light: 'rgb(150, 75, 0)',
+          medium: 'rgb(120, 60, 0)',
+          dark: 'rgb(90, 45, 0)',
+        },
+      },
+      {
+        label: 'blueBall',
+        color: {
+          light: 'rgb(0, 0, 255)',
+          medium: 'rgb(0, 0, 200)',
+          dark: 'rgb(0, 0, 150)',
+        },
+      },
+      {
+        label: 'pinkBall',
+        color: {
+          light: 'rgb(255, 105, 180)',
+          medium: 'rgb(255, 80, 160)',
+          dark: 'rgb(200, 60, 120)',
+        },
+      },
+      {
+        label: 'blackBall',
+        color: {
+          light: 'rgb(50, 50, 50)',
+          medium: 'rgb(30, 30, 30)',
+          dark: 'rgb(0, 0, 0)',
+        },
+      },
+      {
+        label: 'cueBall',
+        color: {
+          light: 'rgb(255, 255, 255)',
+          medium: 'rgb(200, 200, 200)',
+          dark: 'rgb(150, 150, 150)',
+        },
+      },
+    ];
+
+    // Creates 15 reds in random positions
+    const placeRedsRandomly = (count) => {
+      for (let i = 0; i < count; i++) {
+        const randX = random(offsetX + ballDiameter, offsetX + tableWidth - ballDiameter);
+        const randY = random(offsetY + ballDiameter, offsetY + tableHeight - ballDiameter);
+
+        balls.push(
+          new Ball(
+            randX,
+            randY,
+            ballDiameter,
+            {
+              light: 'rgb(252, 82, 82)',
+              medium: 'rgb(218, 1, 1)',
+              dark: 'rgb(165, 0, 0)',
+            },
+            'redBall'
+          )
+        );
+      }
+    };
+
+    // Creates 15 reds in a standard triangle formation
+    const placeRedsStandard = () => {
+      const rows = 5; // 1+2+3+4+5 = 15
+      const startX = centerX * 1.25 + ballDiameter + 5;
+      const startY = centerY;
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col <= row; col++) {
+          balls.push(
+            new Ball(
+              startX + row * ballDiameter,
+              startY + col * ballDiameter - row * ballDiameter * 0.5,
+              ballDiameter,
+              {
+                light: 'rgb(252, 82, 82)',
+                medium: 'rgb(218, 1, 1)',
+                dark: 'rgb(165, 0, 0)',
+              },
+              'redBall'
+            )
+          );
+        }
+      }
+    };
+
+    // Places the 6 colors (and optionally the cue) in standard positions
+    const placeColorsStandard = (includeCue = true) => {
+      coloredBallData.forEach((ballDef, index) => {
+        const { x, y, d } = coloredBallsPosition[index];
+        const { label, color } = ballDef;
+
+        if (!includeCue && label === 'cueBall') return;
+        balls.push(new Ball(x, y, d, color, label));
+      });
+    };
+
+    // Places the 6 colored balls randomly, optionally skipping the cue
+    const placeColorsRandom = (includeCue = true) => {
+      coloredBallData.forEach(ballDef => {
+        if (!includeCue && ballDef.label === 'cueBall') return;
+        const randX = random(offsetX + ballDiameter, offsetX + tableWidth - ballDiameter);
+        const randY = random(offsetY + ballDiameter, offsetY + tableHeight - ballDiameter);
+
+        balls.push(new Ball(randX, randY, ballDiameter, ballDef.color, ballDef.label));
+      });
+    };
+
+    // -----------------------------------------------------------
+    // SWITCH ON THE MODE:
+    // -----------------------------------------------------------
+    switch (mode) {
+      // =========== MODE 1 =========== 
+      // Standard everything
+      case 1: 
+        placeRedsStandard(); 
+        placeColorsStandard(true);
+        break;
+
+      // =========== MODE 2 =========== 
+      // Random reds, but standard colors & cueball
+      case 2:
+        placeRedsRandomly(15);
+        placeColorsStandard(true);
+        break;
+
+      // =========== MODE 3 =========== 
+      // Random reds, random colors, but standard cueball
+      case 3:
+        placeRedsRandomly(15);
+        placeColorsRandom(false);
+
+        // Now place the cue ball in its standard position
+        const cueIndex = 6;
+        const { x, y, d } = coloredBallsPosition[cueIndex];
+        const cueColor = coloredBallData[cueIndex].color;
+        balls.push(new Ball(x, y, d, cueColor, 'cueBall'));
+        break;
+
+      default:
+        console.warn(`Unknown mode: ${mode}. No balls initialized.`);
+        break;
+    }
+  }
+}
+
+/*****************************************************************************
+ * Snooker Game - Event Handlers
+ * 
+ * This file handles collisions between balls and pockets (scoring/potting),
+ * as well as foul detection logic such as hitting/potting the wrong ball,
+ * or pocketing the cue ball.
+ *****************************************************************************/
+
+/**
+ * handlePocketCollision(event)
+ *  - Triggered when any collision starts in Matter.js.
+ *  - Detects if a ball has collided with a pocket, handles potting logic,
+ *    scoring, and repositioning potted colored balls or the cue ball.
+ */
+function handlePocketCollision(event) {
+  const pairs = event.pairs;
+
+  pairs.forEach(pair => {
+    const bodyA = pair.bodyA;
+    const bodyB = pair.bodyB;
+
+    // Check for pocket-ball collisions
+    if (
+      (bodyA.label === 'pocket' && bodyB.label.endsWith('Ball')) ||
+      (bodyB.label === 'pocket' && bodyA.label.endsWith('Ball'))
+    ) {
+      // Identify which one is the ball
+      const ball = bodyA.label.endsWith('Ball') ? bodyA : bodyB;
+
+      console.log(bodyA.label, bodyB.label);
+      // ----------------------------------------------------------
+      // Cue ball in pocket -> always a foul
+      // ----------------------------------------------------------
+      if (ball.label === 'cueBall') {
+        // Foul penalty for cue ball
+        scoreDistribute(-ballValue('cueBall'));
+
+        // Ball in hand
+        ballInHand = true;
+        mouseInteraction();
+
+        // Reset cue ball to default position
+        resetBallPosition(ball, coloredBallsPosition[6].x, coloredBallsPosition[6].y);
+        return;
+      }
+
+      // ----------------------------------------------------------
+      // If we're in final colors-only stage (no more reds)
+      // ----------------------------------------------------------
+      if (onlyColoredBalls) {
+        if (checkIfColored(ball.label)) {
+          //  - In real snooker, you pot colors in ascending order (yellow->green->brown->blue->pink->black).
+          //  - For demonstration, we'll simply award points and remove the color. 
+          scoreDistribute(ballValue(ball.label));
+
+          // Remove the potted color from the table entirely
+          Matter.World.remove(world, ball);
+          balls = balls.filter(b => b.body !== ball);
+        }
+        return;
+      }
+
+      // ----------------------------------------------------------
+      // If reds are still available
+      // ----------------------------------------------------------
+      if (redBallsRemaining > 0) {
+        // Potting a red
+        if (ball.label === 'redBall') {
+          scoreDistribute(ballValue('redBall'));
+          redBallsRemaining--;
+
+          // Remove red ball from the table
+          Matter.World.remove(world, ball);
+          balls = balls.filter(b => b.body !== ball);
+
+          // If that was the last red, switch to colors-only
+          if (redBallsRemaining === 0) {
+            onlyColoredBalls = true;
+          } else {
+            // Indicate the player must now pot a color
+            redBallPotted = true;  
+          }
+          // Allow the same player to continue
+          againTurn = true;
+          return;
+        }
+
+        // Potting a color
+        if (checkIfColored(ball.label)) {
+          // If we *just* potted a red, potting a color next is correct
+          if (!redBallPotted) {
+            scoreDistribute(ballValue(ball.label));
+            // In standard snooker, color goes back to its spot if reds remain
+            resetColoredBall(ball);
+
+            // Now the next shot is back to a red
+            redBallPotted = false;
+            againTurn = true;
+          } else {
+            // Foul if the player potted a color while "on a red"
+            scoreDistribute(-ballValue(ball.label));
+            resetColoredBall(ball);
+            // Typically you'd also switch players here
+          }
+          return;
+        }
+      }
+    }
+  });
+}
+
+
+/**
+ * handleFoul(event)
+ *  - Checks for potential fouls during collisions:
+ *    • Cue ball hitting a cushion first is allowed (not a foul).
+ *    • Cue ball hitting the wrong ball first (red vs. color) is a foul.
+ *  - Only processes if a valid cue shot was taken (`isCueShotTaken === true`).
+ */
+function handleFoul(event) {
+  // If the cue shot hasn't been taken yet, there's nothing to check.
+  if (!isCueShotTaken) return;
+
+  const pairs = event.pairs;
+  pairs.forEach(pair => {
+    const bodyA = pair.bodyA;
+    const bodyB = pair.bodyB;
+
+    console.log(bodyA, bodyB);
+
+    // ------------------------------------------------------------------------------------
+    // If the collision is with a cushion, it's not a foul, so ignore.
+    // ------------------------------------------------------------------------------------
+    if (bodyA.label === "cushion" || bodyB.label === "cushion") {
+      return;
+    }
+
+    // ------------------------------------------------------------------------------------
+    // If a collision involves the cue ball and another ball, check for foul logic.
+    //   - For standard snooker:
+    //     a) If you must pot a red but you hit a color first => foul.
+    //     b) If you must pot a color but you hit a red first => foul.
+    //     c) If you are in the final color sequence, hitting the wrong color first => foul.
+    // ------------------------------------------------------------------------------------
+    if (bodyA.label === "cueBall" || bodyB.label === "cueBall") {
+      // Pass the pair to a function that checks whether it's a foul 
+      // based on the current state (e.g., redBallPotted, onlyColoredBalls, etc.).
+      checkFoulCollision(bodyA, bodyB);
+    }
+  });
+}
+
+/**
+ * cueBall shot on click
+ */
+function mouseClicked() {
+  if (ignoreNextClick) {
+    ignoreNextClick = false;
+    return;
+  }
+
+  // Table boundaries for validating mouse clicks
+  const tableLeft = snookerTable.tableOffsetX;
+  const tableRight = snookerTable.tableOffsetX + snookerTable.tableWidth;
+  const tableTop = snookerTable.tableOffsetY;
+  const tableBottom = snookerTable.tableOffsetY + snookerTable.tableHeight;
+
+  if(!disable){
+    // If Click is within the table and that the cue ball is at rest
+    if (
+      mouseX >= tableLeft && mouseX <= tableRight &&
+      mouseY >= tableTop && mouseY <= tableBottom &&
+      velocityMagnitude <= 0.009
+    ) {
+      shootCueBallByAngle();
+    }
+  } else if (!ballInHand && velocityMagnitude <= vMlimit){
+    if (
+      mouseX >= tableLeft && mouseX <= tableRight &&
+      mouseY >= tableTop && mouseY <= tableBottom
+    ) {
+      shootCueBallByAngle();
+    }
+  }
+  
+}
+
+// Function triggered on a key press event
+function keyPressed() {
+  // Handle number keys for game modes
+  if (['1', '2', '3'].includes(key)) {
+    resetBalls();
+    resetAttackModes(); // Reset attack mode events
+    player1Score = 0; // Score reset
+    player2Score = 0; // Score reset
+    disable = false; // UI and logics enabled back
+    initializeGame(parseInt(key));
+    return; // Exit early since action is handled
+  }
+
+  // Handle specific key actions
+  switch (key) {
+    case ' ':
+      shootCueBallByAngle();
+      break;
+
+    case '4':
+      activateBlackBallAttackMode(); // Enable black ball attack
+      disable = true; // UI and logics disabled
+      break;
+
+    case '5':
+      activateAllColorBallsAttackMode(); // Enable all balls attack
+      disable = true; // UI and logics disabled
+      break;
+
+    case 'Enter':
+      isMouseControlled = !isMouseControlled; // Toggle control mode
+      break;
+
+    default:
+      // Handle arrow keys
+      if (keyCode === UP_ARROW) {
+        cueAngle -= angleStep;
+      } else if (keyCode === DOWN_ARROW) {
+        cueAngle += angleStep;
+      } else if (speedSlider) {
+        let currentValue = speedSlider.value();
+        if (keyCode === RIGHT_ARROW) {
+          // Increase slider value
+          speedSlider.value(Math.min(currentValue + 1, 20));
+        } else if (keyCode === LEFT_ARROW) {
+          // Decrease slider value
+          speedSlider.value(Math.max(currentValue - 1, 1));
+        }
+      }
+      break;
+  }
+}
+
+/*****************************************************************************
+ * Snooker Game - Helper Functions
+ *
+ * Provides utility methods for rules, scoring, UI, etc.
+ *****************************************************************************/
+
+/**
+ * Checks if the cue ball is within the "D" area before confirming its position.
+ * @returns {boolean} True if valid, otherwise sets an error message.
+ */
+function checkIfCueBallonD() {
+  const distToD = dist(
+    cueBall.position.x,
+    cueBall.position.y,
+    snookerTable.baulkLineX,
+    snookerTable.tableOffsetY + snookerTable.tableHeight / 2
+  );
+
+  if (distToD <= snookerTable.dRadius && cueBall.position.x <= snookerTable.baulkLineX) {
+    return true;
+  }
+
+  // Show an incorrect placement warning
+  IncorrectMessageVisible = true;
+  IncorrectMessageTimeout = setTimeout(() => {
+    IncorrectMessageVisible = false;
+  }, 2000);
+
+  return false;
+}
+
+/**
+ * Checks if the given ball label corresponds to one of the colored balls.
+ * @param {string} ballName
+ * @returns {boolean}
+ */
+function checkIfColored(ballName) {
+  return coloredBalls.includes(ballName);
+}
+
+/**
+ * Returns the point value for a given ball label.
+ * @param {string} ballName
+ * @returns {number}
+ */
+function ballValue(ballName) {
+  switch (ballName) {
+    case "redBall":     return 1;
+    case "yellowBall":  return 2;
+    case "greenBall":   return 3;
+    case "brownBall":   return 4;
+    case "blueBall":    return 5;
+    case "pinkBall":    return 6;
+    case "blackBall":   return 7;
+    case "cueBall":     return 4;  // Foul penalty for cue ball
+    case "min":         return -4;
+    default:            return 0;
+  }
+}
+
+/**
+ * Checks for a foul if the cue ball hits the wrong ball first.
+ */
+function checkFoulCollision(bodyA, bodyB) {
+  const cue = bodyA.label === 'cueBall' ? bodyA : bodyB;
+  const objectBall = (cue === bodyA) ? bodyB : bodyA;
+
+  // If the correct shot is a red but a color is hit first => foul
+  if (!redBallPotted && !onlyColoredBalls) {
+    if (checkIfColored(objectBall.label)) {
+      scoreDistribute(-ballValue(objectBall.label));
+    }
+  }
+  // If a red was just potted or it's colors-only, but a red is hit => foul
+  if (redBallPotted || onlyColoredBalls) {
+    if (objectBall.label === 'redBall') {
+      scoreDistribute(ballValue('min'));
+    }
+    redBallPotted = false;
+  }
+  isCueShotTaken = false;
+}
+
+/**
+ * Resets a potted colored ball to its original position on the table.
+ */
+function resetColoredBall(ballBody) {
+  const label = ballBody.label;
+  const index = coloredBallData.findIndex(item => item.label === label);
+  if (index !== -1) {
+    const { x, y } = coloredBallsPosition[index];
+    resetBallPosition(ballBody, x, y);
+  } else {
+    console.warn(`No matching entry in coloredBallData for label: ${label}`);
+  }
+}
+
+/**
+ * Sets the ball's velocity to zero and repositions it.
+ */
+function resetBallPosition(ballBody, posX, posY) {
+  Matter.Body.setVelocity(ballBody, { x: 0, y: 0 });
+  Matter.Body.setPosition(ballBody, { x: posX, y: posY });
+}
+
+/**
+ * Creates the "Start Game" button and sets its behavior.
+ */
+function gameStartBtn() {
+  const buttonStart = createButton('Start Game');
+  buttonStart.position(canvas.width / 2 - 50, canvas.height / 2);
+
+  buttonStart.mousePressed(() => {
+    gameStarted = true;
+    buttonStart.hide();
+    ignoreNextClick = true;
+  });
+}
+
+/**
+ * Creates a vertical slider (rotated -90°) for controlling cue ball force.
+ */
+function slider() {
+  const sliderPosX = -135;
+  const sliderPosY = snookerTable.tableOffsetY + snookerTable.tableHeight / 2;
+  
+  speedSlider = createSlider(1, 20, 10);
+  speedSlider.position(sliderPosX, sliderPosY);
+  speedSlider.style('width', '400px');
+  speedSlider.style('transform', 'rotate(-90deg)');
+  speedSlider.hide(); // Initially hidden
+}
+
+/**
+ * Adds a "Confirm" button for cue ball placement inside the "D."
+ */
+function cueBallConfirmPos() {
+  Btn_confirmCueballPos = createButton('Confirm');
+  Btn_confirmCueballPos.position(canvas.width / 2 - 40, dpHeight * 1.75);
+  Btn_confirmCueballPos.hide();
+
+  Btn_confirmCueballPos.mouseClicked(() => {
+    if (checkIfCueBallonD()) {
+      Btn_confirmCueballPos.hide();
+      ballInHand = false;
+      startTimer();
+      speedSlider.show();
+
+      // Re-enable collisions for non-cue balls
+      for (let i = 0; i < balls.length; i++) {
+        if (balls[i].body.label !== 'cueBall') {
+          balls[i].body.collisionFilter.mask = 1;
+        }
+      }
+
+      // Remove mouse constraint to finalize cue ball placement
+      Matter.World.remove(world, mouseConstraint);
+    }
+  });
+}
+
+/**
+ * Allows the cue ball to be moved with the mouse while it's 'in hand.'
+ */
+function mouseInteraction() {
+  const canvasMouse = Mouse.create(canvas.elt);
+
+  mouseConstraint = MouseConstraint.create(engine, {
+    mouse: canvasMouse,
+    constraint: {
+      stiffness: 0.2,
+      render: { visible: false },
+    },
+  });
+  World.add(world, mouseConstraint);
+}
+
+/**
+ * Updates the current player's score by the specified value (positive or negative).
+ */
+function scoreDistribute(value) {
+  if (currentPlayer === 1) {
+    player1Score += value;
+  } else {
+    player2Score += value;
+  }
+}
+
+/**
+ * Removes existing balls from the Matter.js world and clears the global array.
+ */
+function resetBalls() {
+  balls.forEach(b => Matter.World.remove(world, b.body));
+  balls = [];
+}
+
+/**
+ * Starts the 60-second timer, switches players when time runs out, and shows a foul message briefly.
+ */
+function startTimer() {
+  timer = 60;
+  clearInterval(timerInterval);
+
+  timerInterval = setInterval(() => {
+    timer--;
+    if (timer <= 0) {
+      currentPlayer = (currentPlayer === 1) ? 2 : 1;
+      foulMessageVisible = true;
+
+      // Hide foul message after 2s
+      foulMessageTimeout = setTimeout(() => {
+        foulMessageVisible = false;
+      }, 2000);
+
+      timer = 60;
+    }
+  }, 1000);
+}
+
+/**
+ * Draws the current timer value on screen.
+ */
+function drawTimer() {
+  push();
+    textAlign(CENTER);
+    textSize(24);
+    textStyle(BOLD);
+    fill(255);
+    text(`${timer}`, width / 2, dpHeight*2);
+  pop();
+}
+
+/**
+ * Resets the timer to 60 seconds (e.g., on a successful shot).
+ */
+function resetTimer() {
+  timer = 60;
+}
+
+/**
+ * Helper function to initialize the game for a specific mode
+ */
+function initializeGame(mode) {
+  Ball.initializeBalls(
+    mode,                               // Game mode (1, 2, or 3)
+    snookerTable.tableWidth,            // Width of the snooker table
+    snookerTable.tableHeight,           // Height of the snooker table
+    snookerTable.tableOffsetX,          // X offset for positioning the table
+    snookerTable.tableOffsetY,          // Y offset for positioning the table
+    snookerTable.baulkLineX,            // Position of the baulk line on the table
+    snookerTable.dRadius                // Radius of the "D" zone
+  );
+
+  // Identify the cue ball from the array of balls
+  cueBall = balls.find(ball => ball.body.label === "cueBall").body;
+
+  // Build an array of labels for all colored balls (excluding red and cue balls)
+  coloredBalls = balls
+    .filter(ball => ball.body.label !== "redBall" && ball.body.label !== "cueBall")
+    .map(ball => ball.body.label);
+
+  // Create a new cue object linked to the cue ball
+  cue = new Cue(cueBall);
+}
+
+/* 
+- Handles the cue ball shot when the table is clicked.
+- Prevents immediate shot if we are still placing the cue ball.
+*/
+function shootCueBallByAngle() {
+  const forceMagnitude = speedSlider.value() / 1000;
+
+  let forceDirection;
+
+  // Calculate the direction from the cue ball to mouse
+  if (isMouseControlled) {
+    // Mouse-controlled: calculate direction from cue ball to mouse
+    forceDirection = {
+      x: mouseX - cueBall.position.x,
+      y: mouseY - cueBall.position.y,
+    };
+  } else {
+    // Arrow key-controlled: use the cueAngle for force direction
+    forceDirection = {
+      x: Math.cos(cueAngle),
+      y: Math.sin(cueAngle),
+    };
+  }
+
+  // Normalize the direction vector
+  const directionMagnitude = Math.sqrt(
+    forceDirection.x ** 2 + forceDirection.y ** 2
+  );
+  const normalizedDirection = {
+    x: forceDirection.x / directionMagnitude,
+    y: forceDirection.y / directionMagnitude,
+  };
+
+  // Apply force to the cue ball
+  Matter.Body.applyForce(cueBall, cueBall.position, {
+    x: normalizedDirection.x * forceMagnitude,
+    y: normalizedDirection.y * forceMagnitude,
+  });
+
+  isCueShotTaken = true;
+
+  if(!disable){
+    // Switch player turn after a short delay
+    setTimeout(() => {
+      resetTimer();
+      currentPlayer = (currentPlayer === 1) ? 2 : 1;
+    }, 1500);
+  }
+
+}
+
+/**
+ * Activates the Black Ball Attack Mode.
+ * This mode applies a force to the black ball, directing it toward the cue ball.
+ */
+function activateBlackBallAttackMode() {
+  resetAttackModes(); // Remove any existing attack mode listeners
+
+  // Retrieve the black ball from the balls array
+  const blackBall = balls.find(ball => ball.body.label === "blackBall").body;
+
+  // Add a listener to apply force to the black ball before each physics update
+  Events.on(engine, 'beforeUpdate', () => {
+    const force = calculateForceTowardCueBall(blackBall, cueBall);
+    Matter.Body.applyForce(blackBall, blackBall.position, force);
+  });
+
+  blackBallAttackEventActive = true; // Indicate that Black Ball Attack Mode is active
+}
+
+/**
+ * Activates the All Color Balls Attack Mode.
+ * This mode applies forces to all colored balls (excluding the cue and red balls),
+ * directing them toward the cue ball.
+ */
+function activateAllColorBallsAttackMode() {
+  resetAttackModes(); // Remove any existing attack mode listeners
+
+  // Add a listener to apply forces to all relevant colored balls before each physics update
+  Events.on(engine, 'beforeUpdate', () => {
+    balls.forEach(ball => {
+      const label = ball.body.label;
+      if (label !== "cueBall" && label !== "redBall") {
+        const force = calculateForceTowardCueBall(ball.body, cueBall);
+        Matter.Body.applyForce(ball.body, ball.body.position, force);
+      }
+    });
+  });
+
+  allColorBallsAttackEventActive = true; // Indicate that All Color Balls Attack Mode is active
+}
+
+/**
+ * Resets any active attack modes by removing their associated event listeners.
+ * This ensures that only one attack mode is active at a time.
+ */
+function resetAttackModes() {
+  if (blackBallAttackEventActive) {
+    Events.off(engine, 'beforeUpdate'); // Remove Black Ball Attack listener
+    blackBallAttackEventActive = false;
+  }
+
+  if (allColorBallsAttackEventActive) {
+    Events.off(engine, 'beforeUpdate'); // Remove All Color Balls Attack listener
+    allColorBallsAttackEventActive = false;
+  }
+}
+
+/**
+ * Calculates the normalized force vector directing an attacker ball toward the target ball.
+ *
+ * @param {Matter.Body} attackerBall - The ball applying the force.
+ * @param {Matter.Body} targetBall - The ball toward which the force is directed.
+ * @returns {Object} - The force vector with x and y components.
+ */
+function calculateForceTowardCueBall(attackerBall, targetBall) {
+  const direction = {
+    x: targetBall.position.x - attackerBall.position.x,
+    y: targetBall.position.y - attackerBall.position.y,
+  };
+  const magnitude = Math.sqrt(direction.x ** 2 + direction.y ** 2);
+
+  // Normalize the direction vector and scale the force magnitude
+  return {
+    x: (direction.x / magnitude) * 0.00001, // Adjust force strength as needed
+    y: (direction.y / magnitude) * 0.00001,
+  };
+}
+
+/**
+ * Renders the cue stick when the cue ball's velocity is below a specified threshold.
+ *
+ * @param {number} vM - The velocity magnitude threshold.
+ */
+function drawCueWhenVelocity(vM) {
+  // Calculate the current velocity magnitude of the cue ball
+  velocityMagnitude = Math.sqrt(
+    cueBall.velocity.x ** 2 + cueBall.velocity.y ** 2
+  );
+
+  // If the cue ball is nearly stationary, render and update the cue stick
+  if (velocityMagnitude <= vM) {
+    cue.drawCue({ x: mouseX, y: mouseY });
+    cue.update();
+  }
+}
