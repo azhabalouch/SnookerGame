@@ -34,18 +34,20 @@ function displayGameScreen() {
     againTurn = false;
   }
 
-  // Indicate whose turn it is
-  push();
-    fill("lightgreen");
-    textAlign(CENTER);
-    textSize(24);
-    textStyle(BOLD);
-    text(
-      `Player ${currentPlayer === 1 ? "One" : "Two"}'s Turn`,
-      width / 2 + 25,
-      dpHeight
-    );
-  pop();
+  if(!disable){
+    // Indicate whose turn it is
+    push();
+      fill("lightgreen");
+      textAlign(CENTER);
+      textSize(24);
+      textStyle(BOLD);
+      text(
+        `Player ${currentPlayer === 1 ? "One" : "Two"}'s Turn`,
+        width / 2,
+        dpHeight
+      );
+    pop();
+  }
 
   // Handle cue ball in hand on first turn
   if (ballInHand) {
@@ -77,7 +79,7 @@ function displayGameScreen() {
       textSize(24);
       text(
         "White ball in hand, move it to desired position on 'D'",
-        width / 2 + 50,
+        width / 2,
         dpHeight * 1.4
       );
     pop();
@@ -85,38 +87,51 @@ function displayGameScreen() {
   }
 
   // Highlight the current player's score in yellow
-  push();
-    fill("Yellow");
-    textAlign(LEFT);
-    textSize(24);
-    textStyle(BOLD);
-    text(
-      `Player ${
-        currentPlayer === 1
-          ? "1 Score: " + player1Score
-          : "2 Score: " + player2Score
-      }`,
-      dpHeight,
-      dpHeight
-    );
-  pop();
+  if (!disable) {
+    push();
+      fill("Yellow");
+      textAlign(LEFT);
+      textSize(24);
+      textStyle(BOLD);
+      text(
+        `Player ${
+          currentPlayer === 1
+            ? "1 Score: " + player1Score
+            : "2 Score: " + player2Score
+        }`,
+        dpHeight,
+        dpHeight
+      );
+    pop();
 
-  // Show the opponent’s score in white
-  push();
-    fill("white");
-    textAlign(LEFT);
-    textSize(18);
-    textStyle(BOLD);
-    text(
-      `Player ${
-        currentPlayer === 1
-          ? "2 Score: " + player2Score
-          : "1 Score: " + player1Score
-      }`,
-      dpHeight,
-      dpHeight * 1.5
-    );
-  pop();
+    // Show the opponent’s score in white
+    push();
+      fill("white");
+      textAlign(LEFT);
+      textSize(18);
+      textStyle(BOLD);
+      text(
+        `Player ${
+          currentPlayer === 1
+            ? "2 Score: " + player2Score
+            : "1 Score: " + player1Score
+        }`,
+        dpHeight,
+        dpHeight * 1.5
+      );
+    pop();
+  } else {
+    push();
+      fill("Red");
+      textAlign(LEFT);
+      textSize(24);
+      textStyle(BOLD);
+      text("INTRUDER DETECTED! You are being targeted",
+        30,
+        dpHeight
+      );
+    pop();
+  }
 
   // Show foul message if active
   if (foulMessageVisible) {
@@ -136,24 +151,22 @@ function displayGameScreen() {
     textSize(16);
     textStyle(BOLD);
     text(
-      `1, 2, 3 to change Game Modes,\n Press Enter to Switch Mode\n to: ${
-        isMouseControlled ? "Keyboard" : "Mouse"
+      `1, 2, 3, 4, 5 to change Game Modes\n Press Enter to Switch controls\n Current Control: ${
+        isMouseControlled ? "Mouse" : "Keyboard"
       }`,
       canvas.width - snookerTable.tableOffsetX,
-      25
+      dpHeight
     );
   pop();
 
-  // Check cue ball velocity and render the cue stick if nearly stationary
-  velocityMagnitude = Math.sqrt(
-    cueBall.velocity.x ** 2 + cueBall.velocity.y ** 2
-  );
+  
+  if(!disable){
+    // Draw the game timer
+    drawTimer();
 
-  if (velocityMagnitude <= 0.009) {
-    cue.drawCue({ x: mouseX, y: mouseY });
-    cue.update();
+    // Draw Cue
+    drawCueWhenVelocity(0.09);
+  } else {
+    drawCueWhenVelocity(0.9);
   }
-
-  // Draw the game timer
-  drawTimer();
 }

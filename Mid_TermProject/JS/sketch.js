@@ -55,6 +55,9 @@ let redBallsRemaining = 15;             // Counter for remaining red balls
 let cueAngle = 0;                       // The cue's current angle (in radians)
 let angleStep = Math.PI / 90;           // How much to rotate on each up/down press
 let isMouseControlled = true;           // Default control mode
+let disable = false;                    // For disabling items not required in the mode
+let blackBallAttackEventActive = false; // Is black ball attacking
+let allColorBallsAttackEventActive = false; // Are color balls attacking
 
 /**
  * setup()

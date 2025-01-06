@@ -27,6 +27,7 @@ function handlePocketCollision(event) {
       // Identify which one is the ball
       const ball = bodyA.label.endsWith('Ball') ? bodyA : bodyB;
 
+      console.log(bodyA.label, bodyB.label);
       // ----------------------------------------------------------
       // Cue ball in pocket -> always a foul
       // ----------------------------------------------------------
@@ -164,60 +165,75 @@ function mouseClicked() {
   const tableTop = snookerTable.tableOffsetY;
   const tableBottom = snookerTable.tableOffsetY + snookerTable.tableHeight;
 
-  // If Click is within the table and that the cue ball is at rest
-  if (
-    mouseX >= tableLeft && mouseX <= tableRight &&
-    mouseY >= tableTop && mouseY <= tableBottom &&
-    velocityMagnitude <= 0.009
-  ) {
-    shootCueBallByAngle();
+  if(!disable){
+    // If Click is within the table and that the cue ball is at rest
+    if (
+      mouseX >= tableLeft && mouseX <= tableRight &&
+      mouseY >= tableTop && mouseY <= tableBottom &&
+      velocityMagnitude <= 0.009
+    ) {
+      shootCueBallByAngle();
+    }
+  } else {
+    if (
+      mouseX >= tableLeft && mouseX <= tableRight &&
+      mouseY >= tableTop && mouseY <= tableBottom
+    ) {
+      shootCueBallByAngle();
+    }
   }
+  
 }
 
 // Function triggered on a key press event
 function keyPressed() {
-  // Check if the pressed key corresponds to one of the game modes (1, 2, or 3)
-  if (key === '1' || key === '2' || key === '3') {
-    // Reset the balls on the table and clear any existing data
+  // Handle number keys for game modes
+  if (['1', '2', '3'].includes(key)) {
     resetBalls();
-
-    // Initialize the game for the specified mode 
+    resetAttackModes(); // Reset attack mode events
+    player1Score = 0; // Score reset
+    player2Score = 0; // Score reset
+    disable = false; // UI and logics enabled back
     initializeGame(parseInt(key));
+    return; // Exit early since action is handled
   }
 
-  // If spacebar is pressed
-  if (key === ' ') {  
-    shootCueBallByAngle();
-  }
-  // If up arrow is pressed
-  else if (keyCode === UP_ARROW) {
-    cueAngle -= angleStep;
-  }
-  // If down arrow is pressed
-  else if (keyCode === DOWN_ARROW) {
-    cueAngle += angleStep;
-  }
+  // Handle specific key actions
+  switch (key) {
+    case ' ':
+      shootCueBallByAngle();
+      break;
 
-  if (speedSlider) {
-    let currentValue = speedSlider.value();
-    
-    if (keyCode === RIGHT_ARROW) {
-      // Increase slider value
-      speedSlider.value(Math.min(currentValue + 1, 20));
-    } else if (keyCode === LEFT_ARROW) {
-      // Decrease slider value
-      speedSlider.value(Math.max(currentValue - 1, 1));
-    }
-  }
+    case '4':
+      activateBlackBallAttackMode(); // Enable black ball attack
+      disable = true; // UI and logics disabled
+      break;
 
-  if (keyCode === ENTER) {
-    isMouseControlled = !isMouseControlled; // Toggle control mode
-  } 
-  if (!isMouseControlled) {
-    if (key === UP_ARROW) {
-      cueAngle -= angleStep; // Rotate counterclockwise
-    } else if (key === DOWN_ARROW) {
-      cueAngle += angleStep; // Rotate clockwise
-    }
+    case '5':
+      activateAllColorBallsAttackMode(); // Enable all balls attack
+      disable = true; // UI and logics disabled
+      break;
+
+    case 'Enter':
+      isMouseControlled = !isMouseControlled; // Toggle control mode
+      break;
+
+    default:
+      // Handle arrow keys
+      if (keyCode === UP_ARROW) {
+        cueAngle -= angleStep;
+      } else if (keyCode === DOWN_ARROW) {
+        cueAngle += angleStep;
+      } else if (speedSlider) {
+        let currentValue = speedSlider.value();
+        if (keyCode === RIGHT_ARROW) {
+          // Increase slider value
+          speedSlider.value(Math.min(currentValue + 1, 20));
+        } else if (keyCode === LEFT_ARROW) {
+          // Decrease slider value
+          speedSlider.value(Math.max(currentValue - 1, 1));
+        }
+      }
+      break;
   }
 }

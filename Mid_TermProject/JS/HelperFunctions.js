@@ -136,7 +136,7 @@ function slider() {
  */
 function cueBallConfirmPos() {
   Btn_confirmCueballPos = createButton('Confirm');
-  Btn_confirmCueballPos.position(canvas.width / 2 - 10, dpHeight * 1.75);
+  Btn_confirmCueballPos.position(canvas.width / 2 - 40, dpHeight * 1.75);
   Btn_confirmCueballPos.hide();
 
   Btn_confirmCueballPos.mouseClicked(() => {
@@ -304,9 +304,108 @@ function shootCueBallByAngle() {
 
   isCueShotTaken = true;
 
-  // Switch player turn after a short delay
-  setTimeout(() => {
-    resetTimer();
-    currentPlayer = (currentPlayer === 1) ? 2 : 1;
-  }, 1500);
+  if(!disable){
+    // Switch player turn after a short delay
+    setTimeout(() => {
+      resetTimer();
+      currentPlayer = (currentPlayer === 1) ? 2 : 1;
+    }, 1500);
+  }
+
+}
+
+/**
+ * Activates the Black Ball Attack Mode.
+ * This mode applies a force to the black ball, directing it toward the cue ball.
+ */
+function activateBlackBallAttackMode() {
+  resetAttackModes(); // Remove any existing attack mode listeners
+
+  // Retrieve the black ball from the balls array
+  const blackBall = balls.find(ball => ball.body.label === "blackBall").body;
+
+  // Add a listener to apply force to the black ball before each physics update
+  Events.on(engine, 'beforeUpdate', () => {
+    const force = calculateForceTowardCueBall(blackBall, cueBall);
+    Matter.Body.applyForce(blackBall, blackBall.position, force);
+  });
+
+  blackBallAttackEventActive = true; // Indicate that Black Ball Attack Mode is active
+}
+
+/**
+ * Activates the All Color Balls Attack Mode.
+ * This mode applies forces to all colored balls (excluding the cue and red balls),
+ * directing them toward the cue ball.
+ */
+function activateAllColorBallsAttackMode() {
+  resetAttackModes(); // Remove any existing attack mode listeners
+
+  // Add a listener to apply forces to all relevant colored balls before each physics update
+  Events.on(engine, 'beforeUpdate', () => {
+    balls.forEach(ball => {
+      const label = ball.body.label;
+      if (label !== "cueBall" && label !== "redBall") {
+        const force = calculateForceTowardCueBall(ball.body, cueBall);
+        Matter.Body.applyForce(ball.body, ball.body.position, force);
+      }
+    });
+  });
+
+  allColorBallsAttackEventActive = true; // Indicate that All Color Balls Attack Mode is active
+}
+
+/**
+ * Resets any active attack modes by removing their associated event listeners.
+ * This ensures that only one attack mode is active at a time.
+ */
+function resetAttackModes() {
+  if (blackBallAttackEventActive) {
+    Events.off(engine, 'beforeUpdate'); // Remove Black Ball Attack listener
+    blackBallAttackEventActive = false;
+  }
+
+  if (allColorBallsAttackEventActive) {
+    Events.off(engine, 'beforeUpdate'); // Remove All Color Balls Attack listener
+    allColorBallsAttackEventActive = false;
+  }
+}
+
+/**
+ * Calculates the normalized force vector directing an attacker ball toward the target ball.
+ *
+ * @param {Matter.Body} attackerBall - The ball applying the force.
+ * @param {Matter.Body} targetBall - The ball toward which the force is directed.
+ * @returns {Object} - The force vector with x and y components.
+ */
+function calculateForceTowardCueBall(attackerBall, targetBall) {
+  const direction = {
+    x: targetBall.position.x - attackerBall.position.x,
+    y: targetBall.position.y - attackerBall.position.y,
+  };
+  const magnitude = Math.sqrt(direction.x ** 2 + direction.y ** 2);
+
+  // Normalize the direction vector and scale the force magnitude
+  return {
+    x: (direction.x / magnitude) * 0.00001, // Adjust force strength as needed
+    y: (direction.y / magnitude) * 0.00001,
+  };
+}
+
+/**
+ * Renders the cue stick when the cue ball's velocity is below a specified threshold.
+ *
+ * @param {number} vM - The velocity magnitude threshold.
+ */
+function drawCueWhenVelocity(vM) {
+  // Calculate the current velocity magnitude of the cue ball
+  velocityMagnitude = Math.sqrt(
+    cueBall.velocity.x ** 2 + cueBall.velocity.y ** 2
+  );
+
+  // If the cue ball is nearly stationary, render and update the cue stick
+  if (velocityMagnitude <= vM) {
+    cue.drawCue({ x: mouseX, y: mouseY });
+    cue.update();
+  }
 }
