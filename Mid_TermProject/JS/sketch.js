@@ -1,10 +1,81 @@
 /*****************************************************************************
- * Snooker Game - Main Sketch
+ * Snooker Game - Main Sketch | Commentry
  *
- * Sets up the p5.js canvas, initializes the Matter.js engine, creates the
- * snooker table, balls, and cue, then manages the main draw loop. Also
- * defines UI elements (start button, sliders) and handles cue ball confirmation.
- *****************************************************************************/
+Design Choices:
+The snooker game application faithfully replicates traditional snooker
+mechanics and aesthetics, meeting coursework requirements. Utilizing
+p5.js for graphics and matter.js for physics ensures realistic
+motion, collision, and interactions. Careful scaling of table dimensions,
+ball sizes, and pocket diameters using specified formulas guarantees an
+accurate snooker table representation.
+
+User Interaction:
+The cue ball interaction offers a dynamic and intuitive experience through
+both mouse and keyboard controls. The mouse controls allow players to set
+the cue's direction and strength, mimicking real-life aiming and striking
+for precise power and accuracy. Keyboard controls complement this by
+providing alternative input methods, enhancing accessibility.
+
+Technical Implementation:
+1. Ball Collisions: Realistic restitution and friction settings ensure
+   natural bouncing and rolling behaviors.
+2. Cue Ball Impact: Accurate force and direction transfer models the
+   cue strike, with speed limits to maintain realistic motion.
+3. Cushion Behavior: Table cushions are tuned for appropriate
+   restitution, facilitating realistic ball bounces.
+
+Graphics:
+1. Table Design: The table features correct proportions, including the
+   "D" zone and baulk line, enhancing authenticity.
+2. Ball Rendering: Balls are rendered with gradients and shadows, adding
+   visual depth and realism.
+
+Game Modes:
+Implemented three required modes and two additional ones:
+1. Standard Starting Positions
+2. Random Red Ball Placement
+3. Random Placement of Reds and Colored Balls
+4. Black Ball as Intruder
+5. All Colored Balls as Intruder
+
+Game Logic:
+1. Pocket Detection: Red balls are removed when potted, while colored
+   balls are re-spotted to their original positions.
+2. Error Handling: Implements official snooker fouls, including cue ball
+   potting, potting a colored ball before any red, and hitting a red after
+   potting one.
+3. Cue Ball Reset: If the cue ball is potted, it returns to the "D" zone
+   for player repositioning.
+
+Unique Extension:
+Introduced AI Mimic to enhance gameplay with strategic depth:
+1. Black Ball Attack Mode: AI-controlled black ball moves toward the
+   cue ball, creating challenging scenarios.
+2. All Color Balls Attack Mode: All colored balls (except cue and reds)
+   converge toward the cue ball, increasing difficulty.
+
+Challenges and Solutions:
+- Collision Handling: Addressed overlapping and unnatural responses
+  using matter.js collision events, adjusted restitution and friction, and
+  added proximity checks during initialization.
+- Foul Detection: Implemented snooker-specific foul rules with a
+  turn-based logic system, error prompts, and cue ball resets.
+- Cushion Physics: Improved unrealistic bounces by fine-tuning restitution
+  and damping in matter.js.
+- AI Mimic Complexity: Managed ball movements with directional force
+  vectors and limited force magnitudes for smooth gameplay.
+- Randomized Ball Placement: Refined using spatial algorithms and collision
+  checks to ensure proper spacing and adherence to table constraints.
+
+Future Improvements:
+1. Multiplayer Support: Enable competitive play for enhanced user
+   engagement.
+2. Advanced AI: Develop more sophisticated AI for single-player mode to
+   provide varied challenges.
+3. UI Enhancements: Improve the user interface with scoring displays and
+   game statistics for a better user experience.
+
+*****************************************************************************/
 
 // Import the required Matter.js modules
 const {
@@ -58,6 +129,7 @@ let isMouseControlled = true;           // Default control mode
 let disable = false;                    // For disabling items not required in the mode
 let blackBallAttackEventActive = false; // Is black ball attacking
 let allColorBallsAttackEventActive = false; // Are color balls attacking
+let vMlimit = 0.9;                      // Velocity Magnitude limit flag
 
 /**
  * setup()
