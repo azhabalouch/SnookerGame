@@ -3,8 +3,7 @@ Snooker Game – Interactive Simulation Application
 This project is a snooker game that uses p5.js to draw the table, Matter.js to simulate realistic physics, and p5.sound to add audio effects.
 
 **Video Demonstration**  
-Watch the demo on YouTube:  
-([Demonstration](https://www.youtube.com/watch?v=o0gV392XB44))
+[Watch the demo on YouTube](https://www.youtube.com/watch?v=o0gV392XB44)
 
 **Project Overview**  
 - **Drawing and Setup:**  
