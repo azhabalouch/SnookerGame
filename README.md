@@ -4,7 +4,7 @@ This project is a snooker game that uses p5.js to draw the table, Matter.js to s
 
 **Video Demonstration**  
 Watch the demo on YouTube:  
-[Demonstration]([https://youtu.be/YourDemoLinkHere](https://www.youtube.com/watch?v=o0gV392XB44))
+([Demonstration](https://www.youtube.com/watch?v=o0gV392XB44))
 
 **Project Overview**  
 - **Drawing and Setup:**  
